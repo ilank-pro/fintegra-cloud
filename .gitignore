@@ -1,6 +1,9 @@
 node_modules/
-.DS_Store
 dist/
+.DS_Store
+.claude/
+.env
 .idea/
 .vscode/
 *.log
+node-v*/

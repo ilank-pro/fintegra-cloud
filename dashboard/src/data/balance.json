@@ -1,0 +1,167 @@
+{
+  "balances": [
+    {
+      "_id": "69b4f6710a4b3cd5f6c48b11",
+      "accountNumberPiiId": "ReqrURJao",
+      "customerId": 136522,
+      "balance": 27574.67,
+      "lastUpdated": "2026-03-14T05:42:06.487Z",
+      "source": "leumiBank",
+      "credentialsName": "אילן קור",
+      "created": "2026-03-14T05:47:29.282Z",
+      "__v": 0,
+      "accountNumberPiiValue": "678-7759745"
+    },
+    {
+      "_id": "69b4f6710a4b3ceffcc48b12",
+      "accountNumberPiiId": "8pC9bQ17wQ",
+      "customerId": 136522,
+      "balance": 23185.18,
+      "lastUpdated": "2026-03-14T05:42:06.487Z",
+      "source": "leumiBank",
+      "credentialsName": "צביה קור",
+      "created": "2026-03-14T05:47:29.282Z",
+      "__v": 0,
+      "accountNumberPiiValue": "835-2925043"
+    }
+  ],
+  "financialSummary": {
+    "savingsAccounts": [
+      {
+        "balanceAmount": {
+          "currency": "ILS",
+          "amount": "4120.08"
+        },
+        "isCreditLimitIncluded": false,
+        "sourceIdentifier": "leumi",
+        "financialAccountNumber": "10-678-7759745",
+        "balanceReferenceDate": "2026-03-12",
+        "name": "5065/0-10/7 ...פדיום מעוקל ר",
+        "product": "פיקדון",
+        "status": "blocked",
+        "details": "",
+        "interests": [
+          {
+            "type": "FIXD",
+            "rate": [
+              {
+                "percentage": "-5.7"
+              }
+            ]
+          },
+          {
+            "type": "INDE",
+            "relatedIndices": [
+              {
+                "index": "other",
+                "additionalInformation": "Prime rate"
+              }
+            ],
+            "rate": [
+              {
+                "percentage": "5.5"
+              }
+            ]
+          }
+        ],
+        "calculatedInterest": {
+          "rate": -0.20000000000000018,
+          "hasExitPoints": false
+        },
+        "contractStartDate": "2025-12-26",
+        "contractEndDate": "2026-12-27"
+      },
+      {
+        "balanceAmount": {
+          "currency": "ILS",
+          "amount": "312.1"
+        },
+        "isCreditLimitIncluded": false,
+        "sourceIdentifier": "leumi",
+        "financialAccountNumber": "10-678-7759745",
+        "balanceReferenceDate": "2026-03-12",
+        "name": "5065/0-8/4 ...פדיום מעוקל ר",
+        "product": "פיקדון",
+        "status": "blocked",
+        "details": "",
+        "interests": [
+          {
+            "type": "FIXD",
+            "rate": [
+              {
+                "percentage": "-5.95"
+              }
+            ]
+          },
+          {
+            "type": "INDE",
+            "relatedIndices": [
+              {
+                "index": "other",
+                "additionalInformation": "Prime rate"
+              }
+            ],
+            "rate": [
+              {
+                "percentage": "5.5"
+              }
+            ]
+          }
+        ],
+        "calculatedInterest": {
+          "rate": -0.4500000000000002,
+          "hasExitPoints": false
+        },
+        "contractStartDate": "2025-04-04",
+        "contractEndDate": "2026-04-05"
+      },
+      {
+        "balanceAmount": {
+          "currency": "ILS",
+          "amount": "801.07"
+        },
+        "isCreditLimitIncluded": false,
+        "sourceIdentifier": "leumi",
+        "financialAccountNumber": "10-678-7759745",
+        "balanceReferenceDate": "2026-03-12",
+        "name": "5065/0-9/2 ...פדיום מעוקל ר",
+        "product": "פיקדון",
+        "status": "blocked",
+        "details": "",
+        "interests": [
+          {
+            "type": "FIXD",
+            "rate": [
+              {
+                "percentage": "-5.95"
+              }
+            ]
+          },
+          {
+            "type": "INDE",
+            "relatedIndices": [
+              {
+                "index": "other",
+                "additionalInformation": "Prime rate"
+              }
+            ],
+            "rate": [
+              {
+                "percentage": "5.5"
+              }
+            ]
+          }
+        ],
+        "calculatedInterest": {
+          "rate": -0.4500000000000002,
+          "hasExitPoints": false
+        },
+        "contractStartDate": "2025-10-06",
+        "contractEndDate": "2026-10-06"
+      }
+    ],
+    "loans": [],
+    "mortgages": [],
+    "securities": []
+  }
+}

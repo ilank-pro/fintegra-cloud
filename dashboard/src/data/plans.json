@@ -1,0 +1,150 @@
+[
+  {
+    "_id": "44a610e6-8cbd-4104-80b7-9f9c1a673dd9",
+    "name": "חופשה משפחתית",
+    "type": "vacation",
+    "customerId": 136522,
+    "created": "2023-08-10T12:08:42.363Z",
+    "deadline": "2023-09-01T00:00:00.000Z",
+    "targetAmount": 25000,
+    "currentAmount": 4638.060000000005,
+    "planTransactions": [
+      {
+        "_id": "55333dc8-7f45-47f8-a38e-5d8e28fc3e15",
+        "planId": "44a610e6-8cbd-4104-80b7-9f9c1a673dd9",
+        "customerId": 136522,
+        "created": "2023-09-01T00:05:37.675Z",
+        "budgetDate": "2023-08",
+        "amount": 4638.060000000005,
+        "state": "committed",
+        "creator": "system"
+      }
+    ],
+    "monthlyTarget": 25000,
+    "onTrack": false,
+    "state": "done",
+    "priority": 1,
+    "deleted": null,
+    "unicodeIcon": "🏖️",
+    "relatedTransactionIds": []
+  },
+  {
+    "_id": "fe6d629e-fe6e-467e-a4ad-342371727f6d",
+    "name": "חופשה משפחתית",
+    "type": "vacation",
+    "customerId": 136522,
+    "created": "2023-10-01T06:59:20.821Z",
+    "deadline": "2024-08-01T00:00:00.000Z",
+    "targetAmount": 36000,
+    "currentAmount": 14400,
+    "planTransactions": [
+      {
+        "_id": "3accd18a-866a-4a70-8f5c-cd2db4acf626",
+        "planId": "fe6d629e-fe6e-467e-a4ad-342371727f6d",
+        "customerId": 136522,
+        "created": "2024-08-01T03:20:17.515Z",
+        "budgetDate": "2024-07",
+        "amount": 0,
+        "state": "committed",
+        "creator": "system"
+      },
+      {
+        "_id": "0951fe6e-521e-4a7e-95da-47a27c70c1f9",
+        "planId": "fe6d629e-fe6e-467e-a4ad-342371727f6d",
+        "customerId": 136522,
+        "created": "2024-07-01T03:15:28.863Z",
+        "budgetDate": "2024-06",
+        "amount": 0,
+        "state": "committed",
+        "creator": "system"
+      },
+      {
+        "_id": "ffc0f1d8-8012-43ad-bd13-ea5c930d1c5d",
+        "planId": "fe6d629e-fe6e-467e-a4ad-342371727f6d",
+        "customerId": 136522,
+        "created": "2024-06-01T02:35:36.725Z",
+        "budgetDate": "2024-05",
+        "amount": 0,
+        "state": "committed",
+        "creator": "system"
+      },
+      {
+        "_id": "46694683-811e-4a99-b11d-69abc412a99f",
+        "planId": "fe6d629e-fe6e-467e-a4ad-342371727f6d",
+        "customerId": 136522,
+        "created": "2024-05-01T02:54:18.537Z",
+        "budgetDate": "2024-04",
+        "amount": 3600,
+        "state": "committed",
+        "creator": "system"
+      },
+      {
+        "_id": "4e8eb5d2-71dc-4eb4-a70f-6ad14bda556c",
+        "planId": "fe6d629e-fe6e-467e-a4ad-342371727f6d",
+        "customerId": 136522,
+        "created": "2024-04-01T03:13:21.520Z",
+        "budgetDate": "2024-03",
+        "amount": 0,
+        "state": "committed",
+        "creator": "system"
+      },
+      {
+        "_id": "25c9b971-ad01-436b-8669-d0fe2854c8ae",
+        "planId": "fe6d629e-fe6e-467e-a4ad-342371727f6d",
+        "customerId": 136522,
+        "created": "2024-03-01T03:54:48.555Z",
+        "budgetDate": "2024-02",
+        "amount": 3600,
+        "state": "committed",
+        "creator": "system"
+      },
+      {
+        "_id": "fb39f3c1-c430-4e91-89bf-37c97001e2de",
+        "planId": "fe6d629e-fe6e-467e-a4ad-342371727f6d",
+        "customerId": 136522,
+        "created": "2024-02-01T16:54:42.235Z",
+        "budgetDate": "2024-01",
+        "amount": 0,
+        "state": "committed",
+        "creator": "system"
+      },
+      {
+        "_id": "711f0755-c919-4f21-86a6-d1d03129ec6e",
+        "planId": "fe6d629e-fe6e-467e-a4ad-342371727f6d",
+        "customerId": 136522,
+        "created": "2024-01-01T04:04:46.560Z",
+        "budgetDate": "2023-12",
+        "amount": 3600,
+        "state": "committed",
+        "creator": "system"
+      },
+      {
+        "_id": "0835bae9-e132-4882-9bf8-ab256a7d2ccb",
+        "planId": "fe6d629e-fe6e-467e-a4ad-342371727f6d",
+        "customerId": 136522,
+        "created": "2023-12-01T04:23:35.504Z",
+        "budgetDate": "2023-11",
+        "amount": 0,
+        "state": "committed",
+        "creator": "system"
+      },
+      {
+        "_id": "ceb8eab9-74d4-4db3-a93a-a5635e0c0259",
+        "planId": "fe6d629e-fe6e-467e-a4ad-342371727f6d",
+        "customerId": 136522,
+        "created": "2023-11-01T04:24:05.432Z",
+        "budgetDate": "2023-10",
+        "amount": 3600,
+        "state": "committed",
+        "creator": "system"
+      }
+    ],
+    "monthlyTarget": 3600,
+    "onTrack": false,
+    "state": "done",
+    "priority": 2,
+    "deleted": null,
+    "unicodeIcon": "🏖️",
+    "relatedTransactionIds": []
+  }
+]

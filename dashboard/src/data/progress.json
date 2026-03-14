@@ -1,0 +1,88 @@
+{
+  "averageCashflows": -21591.256666666675,
+  "positiveCashflowsCount": 2,
+  "averageSavings": 2036.6516666666666,
+  "totalSavings": 12219.91,
+  "totalCashflowsAndSavingsSinceActivation": -21049.06000000021,
+  "topCategoryTrends": {
+    "highestPositiveChangeCategory": {
+      "categoryName": "תחבורה ציבורית",
+      "categoryId": "v2-default-il-expense-category-14",
+      "categoryIdHash": "00bd2c8736c775ce01714bbba5813dab",
+      "topBusinessNames": [
+        {
+          "businessName": "מ.תחבורה - פנגו מוביט",
+          "transactionsSum": 1845,
+          "transactionsCount": 9
+        },
+        {
+          "businessName": "מ. התחבורה - פנגו מוביט",
+          "transactionsSum": 779,
+          "transactionsCount": 11
+        },
+        {
+          "businessName": "Gett",
+          "transactionsSum": 304,
+          "transactionsCount": 5
+        },
+        {
+          "businessName": "GETT",
+          "transactionsSum": 204.8,
+          "transactionsCount": 4
+        },
+        {
+          "businessName": "רכבת ישראל-רעננה- דרום",
+          "transactionsSum": 54,
+          "transactionsCount": 1
+        }
+      ],
+      "quarterlyChangeAmount": 608.8,
+      "quarterlyChangePercentage": 0.4430858806404658,
+      "lastQuarterAmount": 1374,
+      "currentQuarterAmount": 1982.8
+    },
+    "highestNegativeChangeCategory": {
+      "categoryName": "סופר",
+      "categoryId": "v2-default-il-expense-category-2",
+      "categoryIdHash": "a5126767b01bb3bfa882cab82ea35ba9",
+      "topBusinessNames": [
+        {
+          "businessName": "בישולים בשרון",
+          "transactionsSum": 14588.2,
+          "transactionsCount": 26
+        },
+        {
+          "businessName": "שופרסל שלי תל מונד",
+          "transactionsSum": 7281.070000000001,
+          "transactionsCount": 55
+        },
+        {
+          "businessName": "carrefour תל מונד",
+          "transactionsSum": 6596.5700000000015,
+          "transactionsCount": 23
+        },
+        {
+          "businessName": "לאומי לישראל",
+          "transactionsSum": 3415.8,
+          "transactionsCount": 6
+        },
+        {
+          "businessName": "ויקטורי תל מונד",
+          "transactionsSum": 2833.23,
+          "transactionsCount": 27
+        }
+      ],
+      "quarterlyChangeAmount": 9391.14,
+      "quarterlyChangePercentage": 0.308748353295431,
+      "lastQuarterAmount": 30416.810000000005,
+      "currentQuarterAmount": 21025.670000000006
+    }
+  },
+  "progressState": {
+    "progressStatus": "NEGATIVE_CASHFLOWS_POSITIVE_OSH",
+    "inTrial": false,
+    "currentOshIsPositive": true,
+    "hasRecentNegativeCashflows": true,
+    "hasRecentSavingsTransaction": true
+  }
+}

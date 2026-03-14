@@ -1,0 +1,74 @@
+[
+  {
+    "date": "2026-01-28",
+    "amount": 19263.95,
+    "businessName": "העברת משכורת",
+    "category": "משכורת"
+  },
+  {
+    "date": "2026-01-30",
+    "amount": 12647.28,
+    "businessName": "העברת משכורת",
+    "category": "משכורת"
+  },
+  {
+    "date": "2026-01-31",
+    "amount": 3.99,
+    "businessName": "פטור והנחה מדמי כרטיס",
+    "category": "עמלות"
+  },
+  {
+    "date": "2026-02-02",
+    "amount": 20000,
+    "businessName": "העברה עצמית700",
+    "category": "העברות"
+  },
+  {
+    "date": "2026-02-09",
+    "amount": 2100.02,
+    "businessName": "בבית-עמותה ל-י",
+    "category": "כללי"
+  },
+  {
+    "date": "2026-02-09",
+    "amount": 696.74,
+    "businessName": "הראל חברה לב-י",
+    "category": "זיכויים"
+  },
+  {
+    "date": "2026-02-12",
+    "amount": 4330,
+    "businessName": "העברה עצמית700",
+    "category": "העברות"
+  },
+  {
+    "date": "2026-02-15",
+    "amount": 4200,
+    "businessName": "בנק אוצר החיל",
+    "category": "העברות"
+  },
+  {
+    "date": "2026-02-16",
+    "amount": 12,
+    "businessName": "GETT",
+    "category": "כללי"
+  },
+  {
+    "date": "2026-02-17",
+    "amount": 13.4,
+    "businessName": "PAYPAL *KESHETBROAD",
+    "category": "כללי"
+  },
+  {
+    "date": "2026-02-20",
+    "amount": 276,
+    "businessName": "קצבת ילדים-י",
+    "category": "קצבאות"
+  },
+  {
+    "date": "2026-02-20",
+    "amount": 2000,
+    "businessName": "העברה עצמית700",
+    "category": "העברות"
+  }
+]
