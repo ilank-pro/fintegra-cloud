@@ -10,6 +10,7 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import spendingData from '../data/spending.json';
+import HeatmapCalendar from './HeatmapCalendar';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -178,6 +179,9 @@ export default function SpendingBreakdown() {
                     })}
                 </div>
             </div>
+
+            {/* Heatmap Calendar */}
+            <HeatmapCalendar />
         </div>
     );
 }

@@ -51,22 +51,43 @@ const tooltipDefaults = {
     padding: 12,
 };
 
+function monthLabel(m) {
+    const [y, mo] = m.split('-');
+    return new Date(Number(y), Number(mo) - 1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+}
+
+function addMonths(monthStr, n) {
+    const [y, mo] = monthStr.split('-').map(Number);
+    const d = new Date(y, mo - 1 + n, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function breakEvenMonths(lastCumulative, avgNet, savingsBoost) {
+    if (lastCumulative >= 0) return 0;
+    const effectiveGain = avgNet + savingsBoost;
+    if (effectiveGain <= 0) return null;
+    return Math.ceil(-lastCumulative / effectiveGain);
+}
+
 export default function CashFlow() {
     const [barData, setBarData] = useState(null);
-    const [netData, setNetData] = useState(null);
     const [donutData, setDonutData] = useState(null);
+    const [sorted, setSorted] = useState([]);
+    const [savingsBoost, setSavingsBoost] = useState(2000);
+    const [showProjection, setShowProjection] = useState(true);
 
     useEffect(() => {
         try {
             if (Array.isArray(trendsData)) {
-                const sorted = [...trendsData].sort((a, b) => a.month.localeCompare(b.month));
+                const s = [...trendsData].sort((a, b) => a.month.localeCompare(b.month));
+                setSorted(s);
 
                 setBarData({
-                    labels: sorted.map(d => d.month),
+                    labels: s.map(d => monthLabel(d.month)),
                     datasets: [
                         {
                             label: 'Income',
-                            data: sorted.map(d => d.income || 0),
+                            data: s.map(d => d.income || 0),
                             backgroundColor: 'rgba(16, 185, 129, 0.5)',
                             borderColor: '#10b981',
                             borderWidth: 1,
@@ -74,7 +95,7 @@ export default function CashFlow() {
                         },
                         {
                             label: 'Expenses',
-                            data: sorted.map(d => d.expenses || 0),
+                            data: s.map(d => d.expenses || 0),
                             backgroundColor: 'rgba(239, 68, 68, 0.6)',
                             borderColor: '#ef4444',
                             borderWidth: 1,
@@ -82,33 +103,8 @@ export default function CashFlow() {
                         },
                     ],
                 });
-
-                setNetData({
-                    labels: sorted.map(d => d.month),
-                    datasets: [{
-                        label: 'Net Cash Flow',
-                        data: sorted.map(d => d.net || 0),
-                        borderColor: '#3b82f6',
-                        backgroundColor: (ctx) => {
-                            const chart = ctx.chart;
-                            const { ctx: canvasCtx, chartArea } = chart;
-                            if (!chartArea) return 'rgba(59, 130, 246, 0.1)';
-                            const gradient = canvasCtx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                            gradient.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
-                            gradient.addColorStop(1, 'rgba(59, 130, 246, 0.01)');
-                            return gradient;
-                        },
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 5,
-                        pointHoverRadius: 7,
-                        borderWidth: 2,
-                    }],
-                });
             }
-        } catch (e) {
-            console.error(e);
-        }
+        } catch (e) { console.error(e); }
 
         try {
             if (Array.isArray(spendingData)) {
@@ -124,10 +120,97 @@ export default function CashFlow() {
                     }],
                 });
             }
-        } catch (e) {
-            console.error(e);
-        }
+        } catch (e) { console.error(e); }
     }, []);
+
+    // Cumulative chart derived from sorted + slider
+    const cumulativeChartData = (() => {
+        if (!sorted.length) return null;
+
+        const historicalLabels = sorted.map(d => monthLabel(d.month));
+        const cumulativeValues = [];
+        let running = 0;
+        for (const d of sorted) {
+            running += d.net || 0;
+            cumulativeValues.push(running);
+        }
+
+        const lastCumulative = cumulativeValues[cumulativeValues.length - 1];
+        const avgNet = sorted.reduce((sum, d) => sum + (d.net || 0), 0) / sorted.length;
+        const lastMonth = sorted[sorted.length - 1].month;
+
+        const projLabels = [1, 2, 3].map(n => monthLabel(addMonths(lastMonth, n)));
+        let baseRunning = lastCumulative;
+        let scenarioRunning = lastCumulative;
+        const baselineProj = [];
+        const scenarioProj = [];
+        for (let i = 1; i <= 3; i++) {
+            baseRunning += avgNet;
+            scenarioRunning += avgNet + savingsBoost;
+            baselineProj.push(baseRunning);
+            scenarioProj.push(scenarioRunning);
+        }
+
+        const allLabels = [...historicalLabels, ...projLabels];
+        const historicalFull = [...cumulativeValues, null, null, null];
+        const baselineFull = [...Array(sorted.length - 1).fill(null), lastCumulative, ...baselineProj];
+        const scenarioFull = [...Array(sorted.length - 1).fill(null), lastCumulative, ...scenarioProj];
+
+        const datasets = [{
+            label: 'Cumulative Cash Flow',
+            data: historicalFull,
+            borderColor: '#3b82f6',
+            backgroundColor: (ctx) => {
+                const chart = ctx.chart;
+                const { ctx: canvasCtx, chartArea } = chart;
+                if (!chartArea) return 'rgba(59,130,246,0.1)';
+                const gradient = canvasCtx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                gradient.addColorStop(0, 'rgba(59,130,246,0.25)');
+                gradient.addColorStop(1, 'rgba(59,130,246,0.01)');
+                return gradient;
+            },
+            fill: true,
+            tension: 0.4,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            borderWidth: 2,
+            spanGaps: false,
+        }];
+
+        if (showProjection) {
+            datasets.push({
+                label: 'No Change Trajectory',
+                data: baselineFull,
+                borderColor: 'rgba(148,163,184,0.5)',
+                backgroundColor: 'transparent',
+                borderDash: [5, 4],
+                tension: 0.3,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                borderWidth: 1.5,
+                spanGaps: false,
+            });
+            datasets.push({
+                label: `+${formatCurrency(savingsBoost)}/mo Scenario`,
+                data: scenarioFull,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16,185,129,0.07)',
+                fill: true,
+                borderDash: [6, 3],
+                tension: 0.3,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                borderWidth: 2,
+                spanGaps: false,
+            });
+        }
+
+        return { labels: allLabels, datasets, lastCumulative, avgNet };
+    })();
+
+    const be = cumulativeChartData
+        ? breakEvenMonths(cumulativeChartData.lastCumulative, cumulativeChartData.avgNet, savingsBoost)
+        : null;
 
     const barOptions = {
         responsive: true,
@@ -143,18 +226,19 @@ export default function CashFlow() {
         },
     };
 
-    const netOptions = {
+    const cumulativeOptions = {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-            legend: { display: false },
+            legend: { position: 'top', labels: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans', size: 12 } } },
             tooltip: {
                 ...tooltipDefaults,
                 callbacks: {
                     label: (ctx) => {
+                        if (ctx.raw === null || ctx.raw === undefined) return null;
                         const val = ctx.raw;
-                        return ` Net: ${val >= 0 ? '+' : ''}${formatCurrency(val)}`;
+                        return ` ${ctx.dataset.label}: ${val >= 0 ? '+' : ''}${formatCurrency(val)}`;
                     },
                 },
             },
@@ -191,7 +275,69 @@ export default function CashFlow() {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {/* Panel 1: Income vs Expenses Bar Chart */}
+
+            {/* Cumulative Cash Flow + What-If Scenario */}
+            <div className="glass-panel" style={{ padding: '24px' }}>
+                <div className="flex-between" style={{ marginBottom: '16px' }}>
+                    <h3 style={{ fontWeight: 600 }}>Cumulative Cash Flow</h3>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                        <input
+                            type="checkbox"
+                            checked={showProjection}
+                            onChange={e => setShowProjection(e.target.checked)}
+                            style={{ accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                        />
+                        Show projection
+                    </label>
+                </div>
+
+                {showProjection && (
+                    <div className="scenario-panel" style={{ marginBottom: '20px' }}>
+                        <div className="flex-between" style={{ marginBottom: '10px' }}>
+                            <span style={{ fontSize: '14px', fontWeight: 600 }}>
+                                What if I save{' '}
+                                <span style={{ color: 'var(--accent-success)' }}>{formatCurrency(savingsBoost)}</span>
+                                /month extra?
+                            </span>
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>₪500 — ₪10,000</span>
+                        </div>
+                        <input
+                            type="range"
+                            min={500}
+                            max={10000}
+                            step={500}
+                            value={savingsBoost}
+                            onChange={e => setSavingsBoost(Number(e.target.value))}
+                            className="scenario-slider"
+                        />
+                        <div style={{ marginTop: '10px', fontSize: '14px' }}>
+                            {be === 0 ? (
+                                <span style={{ color: 'var(--accent-success)' }}>You already have a positive cumulative balance.</span>
+                            ) : be === null ? (
+                                <span style={{ color: 'var(--accent-danger)' }}>
+                                    At <strong>{formatCurrency(savingsBoost)}/mo</strong> extra, the deficit keeps growing — try a higher target.
+                                </span>
+                            ) : (
+                                <span style={{ color: 'var(--text-secondary)' }}>
+                                    At <strong style={{ color: 'var(--accent-success)' }}>{formatCurrency(savingsBoost)}/mo</strong> extra savings,
+                                    you break even in{' '}
+                                    <strong style={{ color: 'var(--accent-primary)' }}>{be} month{be !== 1 ? 's' : ''}</strong>.
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {cumulativeChartData ? (
+                    <div style={{ height: '300px' }}>
+                        <Line data={cumulativeChartData} options={cumulativeOptions} />
+                    </div>
+                ) : (
+                    <div className="flex-center text-muted" style={{ height: '300px' }}>No trend data available.</div>
+                )}
+            </div>
+
+            {/* Income vs Expenses Bar Chart */}
             <div className="glass-panel" style={{ padding: '24px' }}>
                 <h3 style={{ marginBottom: '20px', fontWeight: 600 }}>Income vs Expenses</h3>
                 {barData ? (
@@ -203,19 +349,7 @@ export default function CashFlow() {
                 )}
             </div>
 
-            {/* Panel 2: Net Cash Flow Line Chart */}
-            <div className="glass-panel" style={{ padding: '24px' }}>
-                <h3 style={{ marginBottom: '20px', fontWeight: 600 }}>Net Cash Flow Trend</h3>
-                {netData ? (
-                    <div style={{ height: '220px' }}>
-                        <Line data={netData} options={netOptions} />
-                    </div>
-                ) : (
-                    <div className="flex-center text-muted" style={{ height: '220px' }}>No data available.</div>
-                )}
-            </div>
-
-            {/* Panel 3: Spending Distribution Donut */}
+            {/* Spending Distribution Donut */}
             <div className="glass-panel" style={{ padding: '24px' }}>
                 <h3 style={{ marginBottom: '20px', fontWeight: 600 }}>Spending Distribution (Top 8 Categories)</h3>
                 {donutData ? (
