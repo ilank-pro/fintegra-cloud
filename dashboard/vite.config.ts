@@ -236,6 +236,12 @@ function refreshDataPlugin() {
             addLog(`  Wrote trajectory.json: ${current.trajectory.categories.length} categories, ${current.trajectory.pctMonthElapsed}% elapsed`)
           }
 
+          // Write health-score.json
+          if (current.healthScore) {
+            writeJson('health-score', JSON.stringify(current.healthScore, null, 2))
+            addLog(`  Health score: ${current.healthScore.composite}/100 (${current.healthScore.grade}), Level ${current.healthScore.level}`)
+          }
+
           // Add current month to trends if not already present
           const existingTrendsPath = join(dataDir, 'trends.json')
           let allTrends: any[] = []

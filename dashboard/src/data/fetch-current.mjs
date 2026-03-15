@@ -1,6 +1,12 @@
 // Fetches the current budget via /api/budget/current and outputs
 // transactions + budget metadata + trajectory data as JSON to stdout.
 import { RiseUpClient } from '../../../riseup-cli-main/dist/chunk-Q4VJQGQA.js';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const loadJson = (name) => { try { return JSON.parse(readFileSync(join(__dirname, name), 'utf-8')); } catch { return null; } };
 
 const client = new RiseUpClient();
 const budget = await client.budget.current();
@@ -159,6 +165,116 @@ const trajectory = {
   variableIncomePrediction: budget.params?.variableIncomePredictionAmount || null,
 };
 
+// ── Financial Health Scores & Gamification ───────────────────────────
+const clamp = (v, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
+
+// Load supporting data
+const trendsFile = loadJson('trends.json');
+const balanceFile = loadJson('balance.json');
+const progressFile = loadJson('progress.json');
+
+// 1. Cash Flow Score (weight 30%)
+const trendsArr = Array.isArray(trendsFile) ? trendsFile : [];
+const avgIncome = trendsArr.length > 0 ? trendsArr.reduce((s, d) => s + (d.income || 0), 0) / trendsArr.length : actualIncome || 1;
+const avgNet = trendsArr.length > 0 ? trendsArr.reduce((s, d) => s + (d.net || 0), 0) / trendsArr.length : cashflow.projectedNet;
+const netRatio = avgIncome > 0 ? avgNet / avgIncome : 0;
+const cashFlowScore = clamp(Math.round((netRatio + 0.2) / 0.4 * 100));
+
+// 2. Emergency Fund Score (weight 25%)
+const bankBalance = (balanceFile?.balances || []).reduce((s, a) => s + (Number(a.balance) || 0), 0);
+const savingsBalance = (balanceFile?.financialSummary?.savingsAccounts || []).reduce((s, a) => s + (Number(a.balanceAmount?.amount) || 0), 0);
+const liquidAssets = bankBalance + savingsBalance;
+const avgExpenses = trendsArr.length > 0 ? trendsArr.reduce((s, d) => s + (d.expenses || 0), 0) / trendsArr.length : actualExpenses || 1;
+const runway = avgExpenses > 0 ? liquidAssets / avgExpenses : 0;
+const emergencyScore = clamp(Math.round((runway / 6) * 100));
+
+// 3. Budget Adherence Score (weight 25%)
+const budgetedCats = trajectoryCategories.filter(c => c.budgeted > 0 && c.actual > 0);
+let adherenceScore = 75; // default if no budget data
+if (budgetedCats.length > 0) {
+  const totalBudgeted = budgetedCats.reduce((s, c) => s + c.budgeted, 0);
+  const weightedScore = budgetedCats.reduce((s, c) => {
+    const catScore = clamp(Math.round((c.budgeted / Math.max(c.actual, 1)) * 100));
+    const weight = c.budgeted / totalBudgeted;
+    return s + catScore * weight;
+  }, 0);
+  adherenceScore = clamp(Math.round(weightedScore));
+}
+
+// 4. Savings Growth Score (weight 20%)
+const avgSavings = progressFile?.averageSavings || 0;
+const hasSavings = progressFile?.progressState?.currentOshIsPositive || false;
+const savingsRatio = avgIncome > 0 ? avgSavings / avgIncome : 0;
+const savingsScore = clamp(Math.round(
+  savingsRatio >= 0.05 ? 100 :
+  savingsRatio >= 0.02 ? 70 :
+  hasSavings ? 50 :
+  avgSavings > 0 ? 30 : 0
+));
+
+// Composite
+const composite = Math.round(
+  cashFlowScore * 0.30 +
+  emergencyScore * 0.25 +
+  adherenceScore * 0.25 +
+  savingsScore * 0.20
+);
+const grade = composite >= 80 ? 'A' : composite >= 60 ? 'B' : composite >= 40 ? 'C' : composite >= 20 ? 'D' : 'F';
+const level = Math.max(1, Math.min(10, Math.ceil(composite / 10)));
+const levelTitles = ['', 'Getting Started', 'Getting Started', 'Building Habits', 'Building Habits', 'Making Progress', 'Making Progress', 'Financial Fitness', 'Financial Fitness', 'Money Master', 'Money Master'];
+const levelTitle = levelTitles[level] || 'Getting Started';
+const xpInLevel = composite % 10;
+
+// Streak: consecutive positive-net months (from trends, most recent first)
+const sortedTrends = [...trendsArr].sort((a, b) => b.month.localeCompare(a.month));
+let streak = 0;
+for (const m of sortedTrends) {
+  if ((m.net || 0) > 0) streak++;
+  else break;
+}
+
+// Achievement Badges
+const badges = [
+  { id: 'first-positive', name: 'First Positive', icon: '🌟', desc: 'First month with positive net', earned: trendsArr.some(m => (m.net || 0) > 0) },
+  { id: 'budget-master', name: 'Budget Master', icon: '🎯', desc: 'All budgeted categories under budget', earned: budgetedCats.length > 0 && budgetedCats.every(c => c.actual <= c.budgeted) },
+  { id: 'emergency-1m', name: 'Emergency 1M', icon: '🛡️', desc: '1 month emergency fund', earned: runway >= 1 },
+  { id: 'emergency-3m', name: 'Emergency 3M', icon: '🏰', desc: '3 month emergency fund', earned: runway >= 3 },
+  { id: 'emergency-6m', name: 'Emergency 6M', icon: '🏆', desc: '6 month emergency fund', earned: runway >= 6 },
+  { id: 'savings-active', name: 'Saver', icon: '🐷', desc: 'Active savings contributions', earned: hasSavings },
+  { id: 'under-budget', name: 'Under Budget', icon: '💪', desc: 'Total spending under total budget', earned: cashflow.totalExpenses < budgetedCats.reduce((s, c) => s + c.budgeted, 0) },
+  { id: 'streak-3', name: 'Hot Streak', icon: '🔥', desc: '3+ month positive streak', earned: streak >= 3 },
+];
+
+// Monthly Challenge (auto-generated from weakest score)
+const scores = [
+  { name: 'Cash Flow', score: cashFlowScore, dim: 'cashflow' },
+  { name: 'Emergency Fund', score: emergencyScore, dim: 'emergency' },
+  { name: 'Budget Adherence', score: adherenceScore, dim: 'adherence' },
+  { name: 'Savings Growth', score: savingsScore, dim: 'savings' },
+];
+const weakest = scores.reduce((w, s) => s.score < w.score ? s : w, scores[0]);
+
+const challenges = {
+  cashflow: { title: 'Improve Cash Flow', desc: `Reduce spending by ${Math.min(10, Math.abs(Math.round(netRatio * 100)))}% this month`, target: Math.round(avgExpenses * 0.9), metric: 'expenses' },
+  emergency: { title: 'Build Emergency Fund', desc: `Save ${Math.round(avgExpenses * 0.1).toLocaleString()} extra this month`, target: Math.round(avgExpenses * 0.1), metric: 'savings' },
+  adherence: { title: 'Stay On Budget', desc: 'Keep all categories within budget this month', target: 100, metric: 'adherence' },
+  savings: { title: 'Boost Savings', desc: `Increase monthly savings to ${Math.round(avgIncome * 0.05).toLocaleString()}`, target: Math.round(avgIncome * 0.05), metric: 'savings' },
+};
+const activeChallenge = challenges[weakest.dim] || challenges.cashflow;
+
+const healthScore = {
+  composite, grade, level, levelTitle, xpInLevel,
+  scores: {
+    cashFlow: cashFlowScore,
+    emergencyFund: emergencyScore,
+    budgetAdherence: adherenceScore,
+    savingsGrowth: savingsScore,
+  },
+  streak,
+  badges,
+  challenge: { ...activeChallenge, weakestDim: weakest.name, weakestScore: weakest.score },
+};
+
 console.log(JSON.stringify({
   budgetDate: budget.budgetDate,
   cashflowStartDay: budget.cashflowStartDay,
@@ -169,4 +285,5 @@ console.log(JSON.stringify({
   totalIncome: txns.filter(tx => tx.isIncome).reduce((s, t) => s + (t.incomeAmount || t.billingAmount || 0), 0),
   totalExpenses: txns.filter(tx => !tx.isIncome).reduce((s, t) => s + Math.abs(t.billingAmount || 0), 0),
   trajectory,
+  healthScore,
 }));

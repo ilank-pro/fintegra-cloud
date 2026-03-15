@@ -1,0 +1,80 @@
+{
+  "composite": 42,
+  "grade": "C",
+  "level": 5,
+  "levelTitle": "Making Progress",
+  "xpInLevel": 2,
+  "scores": {
+    "cashFlow": 0,
+    "emergencyFund": 13,
+    "budgetAdherence": 99,
+    "savingsGrowth": 70
+  },
+  "streak": 1,
+  "badges": [
+    {
+      "id": "first-positive",
+      "name": "First Positive",
+      "icon": "🌟",
+      "desc": "First month with positive net",
+      "earned": true
+    },
+    {
+      "id": "budget-master",
+      "name": "Budget Master",
+      "icon": "🎯",
+      "desc": "All budgeted categories under budget",
+      "earned": false
+    },
+    {
+      "id": "emergency-1m",
+      "name": "Emergency 1M",
+      "icon": "🛡️",
+      "desc": "1 month emergency fund",
+      "earned": false
+    },
+    {
+      "id": "emergency-3m",
+      "name": "Emergency 3M",
+      "icon": "🏰",
+      "desc": "3 month emergency fund",
+      "earned": false
+    },
+    {
+      "id": "emergency-6m",
+      "name": "Emergency 6M",
+      "icon": "🏆",
+      "desc": "6 month emergency fund",
+      "earned": false
+    },
+    {
+      "id": "savings-active",
+      "name": "Saver",
+      "icon": "🐷",
+      "desc": "Active savings contributions",
+      "earned": true
+    },
+    {
+      "id": "under-budget",
+      "name": "Under Budget",
+      "icon": "💪",
+      "desc": "Total spending under total budget",
+      "earned": false
+    },
+    {
+      "id": "streak-3",
+      "name": "Hot Streak",
+      "icon": "🔥",
+      "desc": "3+ month positive streak",
+      "earned": false
+    }
+  ],
+  "challenge": {
+    "title": "Improve Cash Flow",
+    "desc": "Reduce spending by 10% this month",
+    "target": 65115,
+    "metric": "expenses",
+    "weakestDim": "Cash Flow",
+    "weakestScore": 0
+  }
+}

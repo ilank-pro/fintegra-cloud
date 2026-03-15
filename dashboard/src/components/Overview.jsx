@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { CreditCard, TrendingUp, TrendingDown, DollarSign, PiggyBank, Percent, BarChart3 } from 'lucide-react';
+import { CreditCard, TrendingUp, TrendingDown, DollarSign, PiggyBank, Percent, BarChart3, Flame, Trophy, Zap } from 'lucide-react';
 import balanceData from '../data/balance.json';
 import progressData from '../data/progress.json';
 import trajectoryData from '../data/trajectory.json';
+import healthScoreData from '../data/health-score.json';
 
 const formatCurrency = (val) => {
     if (val === undefined || val === null) return '₪0';
@@ -312,38 +313,121 @@ export default function Overview({ selectedMonths, availableMonths }) {
                 );
             })()}
 
-            {progress && (
-                <div
-                    className="glass-panel"
-                    style={{
-                        marginTop: '24px', padding: '24px',
-                        opacity: mounted ? 1 : 0,
-                        transform: mounted ? 'translateY(0)' : 'translateY(20px)',
-                        transition: 'opacity 0.45s ease 0.5s, transform 0.45s ease 0.5s',
-                    }}
-                >
-                    <div className="flex-between" style={{ marginBottom: '20px' }}>
-                        <h3 style={{ fontWeight: 600 }}>Financial Health</h3>
-                        <span className={`health-score-badge ${isHealthy ? 'good' : avgCashflow > -30000 ? 'warn' : 'bad'}`}>
-                            {isHealthy ? '✓ On Track' : avgCashflow > -30000 ? '⚠ Watch Spending' : '✕ Needs Attention'}
-                        </span>
-                    </div>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '20px' }}>{statusLabel}</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-                        {[
-                            { label: 'Avg Monthly Cashflow', value: formatCurrency(isMultiMonth ? metrics.net / metrics.monthCount : avgCashflow), color: (isMultiMonth ? metrics.net / metrics.monthCount : avgCashflow) >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)' },
-                            { label: 'Positive Months', value: isMultiMonth ? (availableMonths || []).filter(d => selectedMonths.has(d.month) && d.net > 0).length + ' / ' + metrics.monthCount : progress.positiveCashflowsCount, color: 'var(--text-primary)' },
-                            { label: 'Avg Monthly Savings', value: formatCurrency(progress.averageSavings), color: 'var(--accent-success)' },
-                            { label: 'Total Savings', value: formatCurrency(progress.totalSavings), color: 'var(--accent-success)' },
-                        ].map(({ label, value, color }) => (
-                            <div key={label} style={{ textAlign: 'center', padding: '12px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid var(--border-light)' }}>
-                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>{label}</div>
-                                <div style={{ fontSize: '20px', fontWeight: 600, color }}>{value}</div>
+            {/* Financial Health Score Dashboard */}
+            {healthScoreData && (() => {
+                const hs = healthScoreData;
+                const gradeColor = hs.grade === 'A' ? 'var(--accent-success)' : hs.grade === 'B' ? 'var(--accent-primary)' : hs.grade === 'C' ? 'var(--accent-warning)' : 'var(--accent-danger)';
+
+                const scoreItems = [
+                    { label: 'Cash Flow', value: hs.scores.cashFlow, color: '#3b82f6' },
+                    { label: 'Emergency Fund', value: hs.scores.emergencyFund, color: '#8b5cf6' },
+                    { label: 'Budget Adherence', value: hs.scores.budgetAdherence, color: '#10b981' },
+                    { label: 'Savings Growth', value: hs.scores.savingsGrowth, color: '#f59e0b' },
+                ];
+
+                // Score ring
+                const ringSize = 120;
+                const ringStroke = 10;
+                const ringRadius = (ringSize - ringStroke) / 2;
+                const ringCircumference = 2 * Math.PI * ringRadius;
+                const ringOffset = ringCircumference * (1 - hs.composite / 100);
+
+                return (
+                    <div
+                        className="glass-panel"
+                        style={{
+                            marginTop: '24px', padding: '24px',
+                            opacity: mounted ? 1 : 0,
+                            transform: mounted ? 'translateY(0)' : 'translateY(20px)',
+                            transition: 'opacity 0.45s ease 0.55s, transform 0.45s ease 0.55s',
+                        }}
+                    >
+                        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+                            {/* Left: Score ring + level */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                                <div style={{ position: 'relative' }}>
+                                    <svg width={ringSize} height={ringSize} style={{ transform: 'rotate(-90deg)' }}>
+                                        <circle cx={ringSize/2} cy={ringSize/2} r={ringRadius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={ringStroke} />
+                                        <circle cx={ringSize/2} cy={ringSize/2} r={ringRadius} fill="none" stroke={gradeColor} strokeWidth={ringStroke}
+                                            strokeDasharray={ringCircumference} strokeDashoffset={ringOffset} strokeLinecap="round"
+                                            style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.22,1,0.36,1)' }} />
+                                    </svg>
+                                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '32px', fontWeight: 800, color: gradeColor, lineHeight: 1 }}>{hs.grade}</div>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{hs.composite}/100</div>
+                                    </div>
+                                </div>
+                                {/* Level */}
+                                <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Level {hs.level}</div>
+                                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent-primary)' }}>{hs.levelTitle}</div>
+                                    <div style={{ width: '80px', height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.06)', marginTop: '4px' }}>
+                                        <div style={{ width: `${hs.xpInLevel * 10}%`, height: '100%', borderRadius: '2px', background: 'var(--accent-primary)', transition: 'width 0.6s ease' }} />
+                                    </div>
+                                </div>
                             </div>
-                        ))}
+
+                            {/* Middle: Sub-scores */}
+                            <div style={{ flex: 1 }}>
+                                <div className="flex-between" style={{ marginBottom: '14px' }}>
+                                    <h3 style={{ fontWeight: 600 }}>Financial Health</h3>
+                                    {hs.streak > 0 && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '12px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                                            <Flame size={14} color="var(--accent-warning)" />
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-warning)' }}>{hs.streak}-month streak</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {scoreItems.map(({ label, value, color }) => (
+                                        <div key={label}>
+                                            <div className="flex-between" style={{ marginBottom: '3px' }}>
+                                                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>{label}</span>
+                                                <span style={{ fontSize: '12px', fontWeight: 700, color: value >= 60 ? 'var(--accent-success)' : value >= 30 ? 'var(--accent-warning)' : 'var(--accent-danger)' }}>{value}</span>
+                                            </div>
+                                            <div style={{ height: '6px', borderRadius: '3px', background: 'rgba(255,255,255,0.05)' }}>
+                                                <div style={{ height: '100%', borderRadius: '3px', width: `${value}%`, background: color, opacity: 0.75, transition: 'width 0.8s ease' }} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Right: Challenge + badges summary */}
+                            <div style={{ width: '200px', flexShrink: 0 }}>
+                                {/* Active Challenge */}
+                                <div style={{ padding: '14px', background: 'rgba(139,92,246,0.06)', borderRadius: '10px', border: '1px solid rgba(139,92,246,0.15)', marginBottom: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                                        <Zap size={14} color="var(--accent-purple)" />
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-purple)' }}>Challenge</span>
+                                    </div>
+                                    <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>{hs.challenge.title}</div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4 }}>{hs.challenge.desc}</div>
+                                </div>
+
+                                {/* Badges summary */}
+                                <div style={{ padding: '10px' }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600 }}>
+                                        Badges ({hs.badges.filter(b => b.earned).length}/{hs.badges.length})
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                        {hs.badges.map(b => (
+                                            <span key={b.id} title={`${b.name}: ${b.desc}`} style={{
+                                                fontSize: '18px', opacity: b.earned ? 1 : 0.2,
+                                                filter: b.earned ? 'none' : 'grayscale(1)',
+                                                cursor: 'default',
+                                            }}>
+                                                {b.icon}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
         </div>
     );
 }
