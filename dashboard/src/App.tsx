@@ -73,6 +73,7 @@ function App() {
 
     const [refreshing, setRefreshing] = useState(false);
     const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
+    const [drillCategory, setDrillCategory] = useState<string | null>(null);
 
     const toggleMonth = useCallback((m: string, e: React.MouseEvent) => {
         if (e.metaKey || e.ctrlKey) {
@@ -123,8 +124,8 @@ function App() {
         switch (activeTab) {
             case 'overview': return <Overview selectedMonths={selectedMonths} availableMonths={availableMonths} />;
             case 'cashflow': return <CashFlow selectedMonths={selectedMonths} />;
-            case 'spending': return <SpendingBreakdown selectedMonths={selectedMonths} />;
-            case 'transactions': return <Transactions selectedMonths={selectedMonths} />;
+            case 'spending': return <SpendingBreakdown selectedMonths={selectedMonths} onCategoryClick={(cat: string) => { setDrillCategory(cat); setActiveTab('transactions'); }} />;
+            case 'transactions': return <Transactions selectedMonths={selectedMonths} drillCategory={drillCategory} onDrillClear={() => setDrillCategory(null)} />;
             case 'insights': return <Insights selectedMonths={selectedMonths} />;
             case 'simulations': return <Simulations selectedMonths={selectedMonths} />;
             default: return <Overview selectedMonths={selectedMonths} availableMonths={availableMonths} />;

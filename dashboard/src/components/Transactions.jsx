@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import transactionsData from '../data/transactions.json';
 import { getBudgetMonth } from '../utils/budgetMonth';
 import { Search, X, ChevronDown, ChevronUp } from 'lucide-react';
@@ -25,12 +25,24 @@ const CATEGORY_TRANSLATIONS = {
     'משכורת': 'Salary',
 };
 
-export default function Transactions({ selectedMonths }) {
+export default function Transactions({ selectedMonths, drillCategory, onDrillClear }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'income' | 'expenses'
     const [categoryFilter, setCategoryFilter] = useState('');
-    const [groupByCategory, setGroupByCategory] = useState(false);
+    const [groupByCategory, setGroupByCategory] = useState(true);
     const [expandedCategories, setExpandedCategories] = useState(new Set());
+
+    // When drilling from Spending tab, set category filter and expand it
+    const prevDrill = React.useRef(null);
+    React.useEffect(() => {
+        if (drillCategory && drillCategory !== prevDrill.current) {
+            setCategoryFilter(drillCategory);
+            setGroupByCategory(true);
+            setExpandedCategories(new Set([drillCategory]));
+            setTypeFilter('expenses');
+            prevDrill.current = drillCategory;
+        }
+    }, [drillCategory]);
 
     const transactions = useMemo(() => {
         const raw = transactionsData?.transactions || (Array.isArray(transactionsData) ? transactionsData : []);
@@ -85,6 +97,9 @@ export default function Transactions({ selectedMonths }) {
         setSearchTerm('');
         setTypeFilter('all');
         setCategoryFilter('');
+        setExpandedCategories(new Set());
+        prevDrill.current = null;
+        onDrillClear?.();
     };
 
     return (

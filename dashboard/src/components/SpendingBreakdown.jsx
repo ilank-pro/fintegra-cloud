@@ -54,7 +54,7 @@ const CHART_COLORS = [
     '#8b5cf6', '#a855f7',
 ];
 
-export default function SpendingBreakdown({ selectedMonths }) {
+export default function SpendingBreakdown({ selectedMonths, onCategoryClick }) {
     const { categories, total } = useMemo(() => {
         // Check if we have transaction data for the selected months
         const allTxns = Array.isArray(transactionsData) ? transactionsData : [];
@@ -171,7 +171,7 @@ export default function SpendingBreakdown({ selectedMonths }) {
                         const en = CATEGORY_TRANSLATIONS[cat.name] || cat.name;
 
                         return (
-                            <div key={cat.name} className="category-card">
+                            <div key={cat.name} className="category-card" onClick={() => onCategoryClick?.(cat.name)} style={{ cursor: onCategoryClick ? 'pointer' : 'default' }}>
                                 <div className="flex-between" style={{ marginBottom: '8px' }}>
                                     <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
                                         {en}
