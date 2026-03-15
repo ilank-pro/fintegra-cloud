@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -69,18 +69,23 @@ function breakEvenMonths(lastCumulative, avgNet, savingsBoost) {
     return Math.ceil(-lastCumulative / effectiveGain);
 }
 
-export default function CashFlow() {
+export default function CashFlow({ selectedMonths }) {
     const [barData, setBarData] = useState(null);
     const [donutData, setDonutData] = useState(null);
-    const [sorted, setSorted] = useState([]);
     const [savingsBoost, setSavingsBoost] = useState(2000);
     const [showProjection, setShowProjection] = useState(true);
 
+    const sorted = useMemo(() => {
+        if (!Array.isArray(trendsData)) return [];
+        const all = [...trendsData].sort((a, b) => a.month.localeCompare(b.month));
+        if (!selectedMonths || selectedMonths.size === 0) return all;
+        return all.filter(d => selectedMonths.has(d.month));
+    }, [selectedMonths]);
+
     useEffect(() => {
         try {
-            if (Array.isArray(trendsData)) {
-                const s = [...trendsData].sort((a, b) => a.month.localeCompare(b.month));
-                setSorted(s);
+            if (sorted.length > 0) {
+                const s = sorted;
 
                 setBarData({
                     labels: s.map(d => monthLabel(d.month)),
@@ -121,7 +126,7 @@ export default function CashFlow() {
                 });
             }
         } catch (e) { console.error(e); }
-    }, []);
+    }, [sorted]);
 
     // Cumulative chart derived from sorted + slider
     const cumulativeChartData = (() => {

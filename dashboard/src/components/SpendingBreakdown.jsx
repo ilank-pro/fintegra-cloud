@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -10,6 +10,7 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import spendingData from '../data/spending.json';
+import transactionsData from '../data/transactions.json';
 import HeatmapCalendar from './HeatmapCalendar';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -52,18 +53,40 @@ const CHART_COLORS = [
     '#8b5cf6', '#a855f7',
 ];
 
-export default function SpendingBreakdown() {
-    const [categories, setCategories] = useState([]);
-    const [total, setTotal] = useState(0);
+export default function SpendingBreakdown({ selectedMonths }) {
+    const { categories, total } = useMemo(() => {
+        // Check if we have transaction data for the selected months
+        const allTxns = Array.isArray(transactionsData) ? transactionsData : [];
+        const txnMonths = new Set(allTxns.map(t => t.date?.slice(0, 7)).filter(Boolean));
+        const selectedArr = selectedMonths ? [...selectedMonths] : [];
+        const hasAllTxnData = selectedArr.length > 0 && selectedArr.every(m => txnMonths.has(m));
 
-    useEffect(() => {
+        if (hasAllTxnData && selectedArr.length > 0) {
+            // Recompute from transactions for selected months
+            const filtered = allTxns.filter(t => {
+                const m = t.date?.slice(0, 7);
+                return m && selectedMonths.has(m) && !t.isIncome;
+            });
+            const catMap = {};
+            for (const t of filtered) {
+                const cat = t.category || 'Other';
+                if (!catMap[cat]) catMap[cat] = { name: cat, total: 0, count: 0 };
+                catMap[cat].total += t.amount || 0;
+                catMap[cat].count += 1;
+            }
+            const sorted = Object.values(catMap).sort((a, b) => b.total - a.total);
+            const sum = sorted.reduce((acc, c) => acc + c.total, 0);
+            return { categories: sorted, total: sum };
+        }
+
+        // Fallback to spending.json snapshot
         if (Array.isArray(spendingData)) {
             const sorted = [...spendingData].sort((a, b) => b.total - a.total);
             const sum = sorted.reduce((acc, c) => acc + c.total, 0);
-            setCategories(sorted);
-            setTotal(sum);
+            return { categories: sorted, total: sum };
         }
-    }, []);
+        return { categories: [], total: 0 };
+    }, [selectedMonths]);
 
     const top12 = categories.slice(0, 12);
 

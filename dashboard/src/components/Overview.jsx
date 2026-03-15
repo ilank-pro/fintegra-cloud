@@ -1,8 +1,6 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { CreditCard, TrendingUp, TrendingDown, DollarSign, PiggyBank, Percent } from 'lucide-react';
 import balanceData from '../data/balance.json';
-import spendingData from '../data/spending.json';
-import incomeData from '../data/income.json';
 import progressData from '../data/progress.json';
 
 const formatCurrency = (val) => {
@@ -30,7 +28,7 @@ function useCountUp(target, duration = 800, delay = 0) {
             if (timestamp < startTime) { frameRef.current = requestAnimationFrame(tick); return; }
             const elapsed = timestamp - startTime;
             const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+            const eased = 1 - Math.pow(1 - progress, 3);
             setValue(Math.abs(target) * eased);
             if (progress < 1) frameRef.current = requestAnimationFrame(tick);
             else setValue(Math.abs(target));
@@ -55,35 +53,44 @@ function AnimatedPercent({ target, delay, className }) {
     return <span className={className}>{Math.round(raw)}%</span>;
 }
 
-export default function Overview() {
-    const [metrics, setMetrics] = useState({
-        totalBalance: 0, spending: 0, income: 0, net: 0, savingsRate: 0, totalDeposits: 0,
-    });
-    const [progress, setProgress] = useState(null);
+export default function Overview({ selectedMonths, availableMonths }) {
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        try {
-            const balancesArr = balanceData?.balances || [];
-            const totalBal = balancesArr.reduce((acc, a) => acc + (Number(a.balance) || 0), 0);
-            const spd = Array.isArray(spendingData)
-                ? spendingData.reduce((acc, cat) => acc + (Number(cat.total) || 0), 0)
-                : 0;
-            const inc = Array.isArray(incomeData)
-                ? incomeData.reduce((acc, item) => acc + (Number(item.amount) || 0), 0)
-                : 0;
-            const deposits = (balanceData?.financialSummary?.savingsAccounts || [])
-                .reduce((acc, s) => acc + (Number(s.balanceAmount?.amount) || 0), 0);
-            const avgSavings = progressData?.averageSavings || 0;
-            const savingsRate = inc > 0 ? Math.round((avgSavings / inc) * 100) : 0;
-
-            setMetrics({ totalBalance: totalBal, spending: Math.abs(spd), income: inc, net: inc - Math.abs(spd), savingsRate, totalDeposits: deposits });
-            setProgress(progressData);
-        } catch (e) { console.error('Error formatting overview data', e); }
-
         requestAnimationFrame(() => setMounted(true));
     }, []);
 
+    const metrics = useMemo(() => {
+        const selected = (availableMonths || []).filter(d => selectedMonths.has(d.month));
+        if (selected.length === 0) return { totalBalance: 0, spending: 0, income: 0, net: 0, savingsRate: 0, totalDeposits: 0, monthCount: 0 };
+
+        const totalIncome = selected.reduce((s, d) => s + d.income, 0);
+        const totalExpenses = selected.reduce((s, d) => s + d.expenses, 0);
+        const totalNet = selected.reduce((s, d) => s + d.net, 0);
+
+        const balancesArr = balanceData?.balances || [];
+        const totalBal = balancesArr.reduce((acc, a) => acc + (Number(a.balance) || 0), 0);
+        const deposits = (balanceData?.financialSummary?.savingsAccounts || [])
+            .reduce((acc, s) => acc + (Number(s.balanceAmount?.amount) || 0), 0);
+
+        const avgIncome = totalIncome / selected.length;
+        const avgSavings = progressData?.averageSavings || 0;
+        const savingsRate = avgIncome > 0 ? Math.round((avgSavings / avgIncome) * 100) : 0;
+
+        return {
+            totalBalance: totalBal,
+            spending: Math.abs(totalExpenses),
+            income: totalIncome,
+            net: totalNet,
+            savingsRate,
+            totalDeposits: deposits,
+            monthCount: selected.length,
+        };
+    }, [selectedMonths, availableMonths]);
+
+    const isMultiMonth = metrics.monthCount > 1;
+
+    const progress = progressData;
     const avgCashflow = progress?.averageCashflows || 0;
     const progressStatus = progress?.progressState?.progressStatus || '';
     const statusLabel = PROGRESS_STATUS_LABELS[progressStatus] || progressStatus;
@@ -96,18 +103,24 @@ export default function Overview() {
             render: (d) => <AnimatedCurrency target={metrics.totalBalance} delay={d} />,
         },
         {
-            icon: <TrendingUp size={18} />, iconColor: 'var(--accent-success)', label: 'Monthly Income',
-            sub: 'Current month', isNegative: false,
+            icon: <TrendingUp size={18} />, iconColor: 'var(--accent-success)',
+            label: isMultiMonth ? 'Total Income' : 'Monthly Income',
+            sub: isMultiMonth ? `${metrics.monthCount} months combined` : 'Selected month',
+            isNegative: false,
             render: (d) => <AnimatedCurrency target={metrics.income} delay={d} className="positive" />,
         },
         {
-            icon: <TrendingDown size={18} />, iconColor: 'var(--accent-danger)', label: 'Monthly Spending',
-            sub: 'Current month', isNegative: true,
+            icon: <TrendingDown size={18} />, iconColor: 'var(--accent-danger)',
+            label: isMultiMonth ? 'Total Spending' : 'Monthly Spending',
+            sub: isMultiMonth ? `${metrics.monthCount} months combined` : 'Selected month',
+            isNegative: true,
             render: (d) => <AnimatedCurrency target={metrics.spending} delay={d} className="negative" />,
         },
         {
-            icon: <DollarSign size={18} />, iconColor: 'var(--accent-purple)', label: 'Net Cash Flow',
-            sub: 'Income minus spending', isNegative: metrics.net < 0,
+            icon: <DollarSign size={18} />, iconColor: 'var(--accent-purple)',
+            label: isMultiMonth ? 'Total Net Cash Flow' : 'Net Cash Flow',
+            sub: isMultiMonth ? `${metrics.monthCount} months combined` : 'Income minus spending',
+            isNegative: metrics.net < 0,
             render: (d) => (
                 <span className={metrics.net >= 0 ? 'positive' : 'negative'}>
                     {metrics.net > 0 ? '+' : metrics.net < 0 ? '-' : ''}
@@ -146,7 +159,7 @@ export default function Overview() {
                         }}
                     >
                         <div className="metric-header">
-                            <div className="metric-icon flex-center" style={{ 
+                            <div className="metric-icon flex-center" style={{
                                 color: iconColor,
                                 background: 'rgba(10, 12, 16, 0.3)',
                                 boxShadow: `0 0 15px ${iconColor}22`
@@ -180,8 +193,8 @@ export default function Overview() {
                     <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '20px' }}>{statusLabel}</p>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
                         {[
-                            { label: 'Avg Monthly Cashflow', value: formatCurrency(avgCashflow), color: avgCashflow >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)' },
-                            { label: 'Positive Months', value: progress.positiveCashflowsCount, color: 'var(--text-primary)' },
+                            { label: 'Avg Monthly Cashflow', value: formatCurrency(isMultiMonth ? metrics.net / metrics.monthCount : avgCashflow), color: (isMultiMonth ? metrics.net / metrics.monthCount : avgCashflow) >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)' },
+                            { label: 'Positive Months', value: isMultiMonth ? (availableMonths || []).filter(d => selectedMonths.has(d.month) && d.net > 0).length + ' / ' + metrics.monthCount : progress.positiveCashflowsCount, color: 'var(--text-primary)' },
                             { label: 'Avg Monthly Savings', value: formatCurrency(progress.averageSavings), color: 'var(--accent-success)' },
                             { label: 'Total Savings', value: formatCurrency(progress.totalSavings), color: 'var(--accent-success)' },
                         ].map(({ label, value, color }) => (

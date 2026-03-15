@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import transactionsData from '../data/transactions.json';
 import { Search, X, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -24,22 +24,21 @@ const CATEGORY_TRANSLATIONS = {
     'משכורת': 'Salary',
 };
 
-export default function Transactions() {
-    const [transactions, setTransactions] = useState([]);
+export default function Transactions({ selectedMonths }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'income' | 'expenses'
     const [categoryFilter, setCategoryFilter] = useState('');
     const [groupByCategory, setGroupByCategory] = useState(false);
     const [expandedCategories, setExpandedCategories] = useState(new Set());
 
-    useEffect(() => {
-        try {
-            const raw = transactionsData?.transactions || (Array.isArray(transactionsData) ? transactionsData : []);
-            setTransactions(raw);
-        } catch (e) {
-            console.error(e);
-        }
-    }, []);
+    const transactions = useMemo(() => {
+        const raw = transactionsData?.transactions || (Array.isArray(transactionsData) ? transactionsData : []);
+        if (!selectedMonths || selectedMonths.size === 0) return raw;
+        return raw.filter(t => {
+            const m = t.date?.slice(0, 7);
+            return m && selectedMonths.has(m);
+        });
+    }, [selectedMonths]);
 
     const categories = useMemo(() => {
         const unique = [...new Set(transactions.map(t => t.category).filter(Boolean))];

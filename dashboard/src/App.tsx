@@ -1,25 +1,125 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import './index.css';
-import { LayoutDashboard, Wallet, ArrowRightLeft, Lightbulb, BarChart2, PieChart, SlidersHorizontal } from 'lucide-react';
+import { LayoutDashboard, Wallet, ArrowRightLeft, Lightbulb, BarChart2, PieChart, SlidersHorizontal, CalendarDays, RefreshCw } from 'lucide-react';
 import Overview from './components/Overview';
 import CashFlow from './components/CashFlow';
 import Transactions from './components/Transactions';
 import Insights from './components/Insights';
 import SpendingBreakdown from './components/SpendingBreakdown';
 import Simulations from './components/Simulations';
+import trendsData from './data/trends.json';
+import transactionsData from './data/transactions.json';
+import spendingData from './data/spending.json';
+import incomeData from './data/income.json';
+
+function monthLabel(m: string) {
+    const [y, mo] = m.split('-');
+    return new Date(Number(y), Number(mo) - 1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+}
+
+function buildAvailableMonths() {
+    const months: Record<string, { month: string; income: number; expenses: number; net: number; source: string }> = {};
+
+    if (Array.isArray(trendsData)) {
+        for (const t of trendsData) {
+            months[t.month] = { month: t.month, income: t.income || 0, expenses: t.expenses || 0, net: t.net || 0, source: 'trends' };
+        }
+    }
+
+    if (Array.isArray(transactionsData)) {
+        const txnByMonth: Record<string, { income: number; expenses: number }> = {};
+        for (const t of transactionsData) {
+            const m = (t as any).date?.slice(0, 7);
+            if (!m) continue;
+            if (!txnByMonth[m]) txnByMonth[m] = { income: 0, expenses: 0 };
+            if ((t as any).isIncome) txnByMonth[m].income += (t as any).amount || 0;
+            else txnByMonth[m].expenses += (t as any).amount || 0;
+        }
+        for (const [m, data] of Object.entries(txnByMonth)) {
+            if (!months[m]) {
+                months[m] = { month: m, income: data.income, expenses: data.expenses, net: data.income - data.expenses, source: 'transactions' };
+            }
+        }
+    }
+
+    // Current month from spending/income if not already present
+    const currentIncome = Array.isArray(incomeData) ? (incomeData as any[]).reduce((s, i) => s + (Number(i.amount) || 0), 0) : 0;
+    const currentSpending = Array.isArray(spendingData) ? (spendingData as any[]).reduce((s, c) => s + (Number(c.total) || 0), 0) : 0;
+    let currentMonth: string | null = null;
+    if (Array.isArray(incomeData)) {
+        const dates = (incomeData as any[]).map(i => i.date).filter(Boolean).sort();
+        if (dates.length > 0) currentMonth = dates[dates.length - 1].slice(0, 7);
+    }
+    if (!currentMonth && Array.isArray(transactionsData)) {
+        const dates = (transactionsData as any[]).map(t => t.date).filter(Boolean).sort();
+        if (dates.length > 0) currentMonth = dates[dates.length - 1].slice(0, 7);
+    }
+    if (currentMonth && !months[currentMonth]) {
+        months[currentMonth] = { month: currentMonth, income: currentIncome, expenses: currentSpending, net: currentIncome - currentSpending, source: 'current' };
+    }
+
+    return Object.values(months).sort((a, b) => b.month.localeCompare(a.month));
+}
 
 function App() {
     const [activeTab, setActiveTab] = useState('overview');
 
+    const availableMonths = useMemo(() => buildAvailableMonths(), []);
+    const [selectedMonths, setSelectedMonths] = useState<Set<string>>(() => {
+        if (availableMonths.length > 0) return new Set([availableMonths[0].month]);
+        return new Set();
+    });
+
+    const [refreshing, setRefreshing] = useState(false);
+    const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
+
+    const toggleMonth = useCallback((m: string) => {
+        setSelectedMonths(prev => {
+            const next = new Set(prev);
+            if (next.has(m)) {
+                if (next.size > 1) next.delete(m);
+            } else {
+                next.add(m);
+            }
+            return next;
+        });
+    }, []);
+
+    const selectAll = useCallback(() => setSelectedMonths(new Set(availableMonths.map(d => d.month))), [availableMonths]);
+    const selectLatest = useCallback(() => {
+        if (availableMonths.length > 0) setSelectedMonths(new Set([availableMonths[0].month]));
+    }, [availableMonths]);
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        setRefreshMsg(null);
+        try {
+            const res = await fetch('/api/refresh-data');
+            const data = await res.json();
+            if (data.ok) {
+                setRefreshMsg('Data updated — reloading...');
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                setRefreshMsg('Refresh failed — check login session');
+                setTimeout(() => setRefreshMsg(null), 4000);
+            }
+        } catch {
+            setRefreshMsg('Refresh failed — server unreachable');
+            setTimeout(() => setRefreshMsg(null), 4000);
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
     const renderContent = () => {
         switch (activeTab) {
-            case 'overview': return <Overview />;
-            case 'cashflow': return <CashFlow />;
-            case 'spending': return <SpendingBreakdown />;
-            case 'transactions': return <Transactions />;
-            case 'insights': return <Insights />;
-            case 'simulations': return <Simulations />;
-            default: return <Overview />;
+            case 'overview': return <Overview selectedMonths={selectedMonths} availableMonths={availableMonths} />;
+            case 'cashflow': return <CashFlow selectedMonths={selectedMonths} />;
+            case 'spending': return <SpendingBreakdown selectedMonths={selectedMonths} />;
+            case 'transactions': return <Transactions selectedMonths={selectedMonths} />;
+            case 'insights': return <Insights selectedMonths={selectedMonths} />;
+            case 'simulations': return <Simulations selectedMonths={selectedMonths} />;
+            default: return <Overview selectedMonths={selectedMonths} availableMonths={availableMonths} />;
         }
     };
 
@@ -80,6 +180,73 @@ function App() {
                         {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                     </div>
                 </header>
+
+                {/* Global Month Selector */}
+                <div className="glass-panel animate-fade-in" style={{
+                    padding: '12px 20px', marginBottom: '16px',
+                    display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', flexShrink: 0 }}>
+                        <CalendarDays size={16} />
+                        <span style={{ fontSize: '13px', fontWeight: 600 }}>Period</span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', flex: 1 }}>
+                        {availableMonths.map(d => {
+                            const isSelected = selectedMonths.has(d.month);
+                            return (
+                                <button
+                                    key={d.month}
+                                    onClick={() => toggleMonth(d.month)}
+                                    style={{
+                                        padding: '4px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                                        cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s',
+                                        border: isSelected ? '1px solid var(--accent-primary)' : '1px solid var(--border-light)',
+                                        background: isSelected ? 'rgba(0,240,255,0.12)' : 'rgba(255,255,255,0.03)',
+                                        color: isSelected ? 'var(--accent-primary)' : 'var(--text-muted)',
+                                    }}
+                                >
+                                    {monthLabel(d.month)}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                        <button onClick={selectAll} style={{
+                            padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                            cursor: 'pointer', fontFamily: 'inherit',
+                            border: '1px solid var(--border-light)', background: 'rgba(255,255,255,0.03)',
+                            color: selectedMonths.size === availableMonths.length ? 'var(--accent-primary)' : 'var(--text-muted)',
+                        }}>All</button>
+                        <button onClick={selectLatest} style={{
+                            padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                            cursor: 'pointer', fontFamily: 'inherit',
+                            border: '1px solid var(--border-light)', background: 'rgba(255,255,255,0.03)',
+                            color: selectedMonths.size === 1 && availableMonths.length > 0 && selectedMonths.has(availableMonths[0].month) ? 'var(--accent-primary)' : 'var(--text-muted)',
+                        }}>Latest</button>
+
+                        <div style={{ width: '1px', height: '20px', background: 'var(--border-light)', margin: '0 2px' }} />
+
+                        <button onClick={handleRefresh} disabled={refreshing} style={{
+                            padding: '4px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                            cursor: refreshing ? 'wait' : 'pointer', fontFamily: 'inherit',
+                            border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.08)',
+                            color: 'var(--accent-success)',
+                            display: 'flex', alignItems: 'center', gap: '5px',
+                            opacity: refreshing ? 0.7 : 1, transition: 'opacity 0.2s',
+                        }}>
+                            <RefreshCw size={11} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+                            {refreshing ? 'Refreshing...' : 'Refresh'}
+                        </button>
+
+                        {refreshMsg && (
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: refreshMsg.includes('failed') ? 'var(--accent-danger)' : 'var(--accent-success)' }}>
+                                {refreshMsg}
+                            </span>
+                        )}
+                    </div>
+                </div>
 
                 <div className="content-area animate-fade-in" style={{ animationDelay: '0.1s' }}>
                     {renderContent()}

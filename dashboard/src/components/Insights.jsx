@@ -631,7 +631,7 @@ function BestMonthChallenge() {
     );
 }
 
-export default function Insights() {
+export default function Insights({ selectedMonths }) {
     const [progress, setProgress] = useState(null);
     const [plans, setPlans] = useState([]);
     const [ringsVisible, setRingsVisible] = useState(false);

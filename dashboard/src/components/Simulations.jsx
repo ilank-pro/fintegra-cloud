@@ -433,7 +433,7 @@ function SavingsGoalSimulator() {
 }
 
 // ─── Main Simulations Component ─────────────────────────────────────
-export default function Simulations() {
+export default function Simulations({ selectedMonths }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             <EmergencyFundRunway />
