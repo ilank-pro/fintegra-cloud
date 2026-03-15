@@ -6,6 +6,7 @@ import spendingData from '../data/spending.json';
 import incomeData from '../data/income.json';
 import trendsData from '../data/trends.json';
 import transactionsData from '../data/transactions.json';
+import { getBudgetMonth } from '../utils/budgetMonth';
 import { Lightbulb, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Activity, ChevronDown, ChevronUp, Trophy, Gauge, Target } from 'lucide-react';
 
 const formatCurrency = (val) => {
@@ -332,7 +333,7 @@ function SpendingVolatility() {
     const spikeCulprits = useMemo(() => {
         if (!spikeMonth || !Array.isArray(transactionsData)) return [];
         const monthPrefix = spikeMonth.month;
-        const monthTxns = transactionsData.filter(t => t.date?.startsWith(monthPrefix) && !t.isIncome);
+        const monthTxns = transactionsData.filter(t => getBudgetMonth(t) === monthPrefix && !t.isIncome);
         if (monthTxns.length === 0) return [];
 
         const catTotals = {};
@@ -490,7 +491,7 @@ function BestMonthChallenge() {
         if (!Array.isArray(transactionsData)) return [];
 
         const buildCatMap = (monthStr) => {
-            const txns = transactionsData.filter(t => t.date?.startsWith(monthStr) && !t.isIncome);
+            const txns = transactionsData.filter(t => getBudgetMonth(t) === monthStr && !t.isIncome);
             const map = {};
             for (const t of txns) {
                 map[t.category] = (map[t.category] || 0) + (t.amount || 0);

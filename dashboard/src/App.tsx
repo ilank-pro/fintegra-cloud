@@ -11,6 +11,7 @@ import trendsData from './data/trends.json';
 import transactionsData from './data/transactions.json';
 import spendingData from './data/spending.json';
 import incomeData from './data/income.json';
+import { getBudgetMonth } from './utils/budgetMonth';
 
 function monthLabel(m: string) {
     const [y, mo] = m.split('-');
@@ -29,7 +30,7 @@ function buildAvailableMonths() {
     if (Array.isArray(transactionsData)) {
         const txnByMonth: Record<string, { income: number; expenses: number }> = {};
         for (const t of transactionsData) {
-            const m = (t as any).date?.slice(0, 7);
+            const m = getBudgetMonth(t as any);
             if (!m) continue;
             if (!txnByMonth[m]) txnByMonth[m] = { income: 0, expenses: 0 };
             if ((t as any).isIncome) txnByMonth[m].income += (t as any).amount || 0;

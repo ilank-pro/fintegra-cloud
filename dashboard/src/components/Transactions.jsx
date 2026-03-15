@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import transactionsData from '../data/transactions.json';
+import { getBudgetMonth } from '../utils/budgetMonth';
 import { Search, X, ChevronDown, ChevronUp } from 'lucide-react';
 
 const formatCurrency = (val) => {
@@ -35,7 +36,7 @@ export default function Transactions({ selectedMonths }) {
         const raw = transactionsData?.transactions || (Array.isArray(transactionsData) ? transactionsData : []);
         if (!selectedMonths || selectedMonths.size === 0) return raw;
         return raw.filter(t => {
-            const m = t.date?.slice(0, 7);
+            const m = getBudgetMonth(t);
             return m && selectedMonths.has(m);
         });
     }, [selectedMonths]);

@@ -11,6 +11,7 @@ import {
 import { Bar } from 'react-chartjs-2';
 import spendingData from '../data/spending.json';
 import transactionsData from '../data/transactions.json';
+import { getBudgetMonth } from '../utils/budgetMonth';
 import HeatmapCalendar from './HeatmapCalendar';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -57,14 +58,14 @@ export default function SpendingBreakdown({ selectedMonths }) {
     const { categories, total } = useMemo(() => {
         // Check if we have transaction data for the selected months
         const allTxns = Array.isArray(transactionsData) ? transactionsData : [];
-        const txnMonths = new Set(allTxns.map(t => t.date?.slice(0, 7)).filter(Boolean));
+        const txnBudgetMonths = new Set(allTxns.map(t => getBudgetMonth(t)).filter(Boolean));
         const selectedArr = selectedMonths ? [...selectedMonths] : [];
-        const hasAllTxnData = selectedArr.length > 0 && selectedArr.every(m => txnMonths.has(m));
+        const hasAllTxnData = selectedArr.length > 0 && selectedArr.every(m => txnBudgetMonths.has(m));
 
         if (hasAllTxnData && selectedArr.length > 0) {
             // Recompute from transactions for selected months
             const filtered = allTxns.filter(t => {
-                const m = t.date?.slice(0, 7);
+                const m = getBudgetMonth(t);
                 return m && selectedMonths.has(m) && !t.isIncome;
             });
             const catMap = {};
