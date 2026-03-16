@@ -179,13 +179,20 @@ function refreshDataPlugin() {
             allTxns.push(t)
             addedTxns++
           }
-          // Build per-transaction category override map (keyed by date_amount_businessName)
-          // Same merchant can have different user categories for different transactions
+          // Use per-transaction category overrides from budget API (includes previous months)
           const categoryOverrides = new Map<string, string>()
+          // From fetch-current.mjs which fetches trackingCategory from current + 2 previous budgets
+          if (current.categoryOverrides) {
+            for (const [key, cat] of Object.entries(current.categoryOverrides)) {
+              categoryOverrides.set(key, cat as string)
+            }
+            addLog(`  Category overrides: ${categoryOverrides.size} from budget API`)
+          }
+          // Also add from current transactions (resolveCategory already applied)
           for (const t of current.transactions) {
             if (t.category && t.date && t.businessName) {
               const key = `${t.date}_${t.amount}_${t.businessName}`
-              categoryOverrides.set(key, t.category)
+              if (!categoryOverrides.has(key)) categoryOverrides.set(key, t.category)
             }
           }
           // Apply overrides to ALL transactions (including historical CLI-fetched ones)

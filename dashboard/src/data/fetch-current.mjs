@@ -12,6 +12,32 @@ const client = new RiseUpClient();
 const budget = await client.budget.current();
 const txns = budget.envelopes.flatMap(e => e.actuals);
 
+// Fetch previous budgets to get trackingCategory overrides for older transactions
+const categoryOverrideMap = {};
+try {
+  // Fetch 4 budgets starting from current month (API returns recent budgets going backward)
+  const prevBudgets = await client.budget.get(budget.budgetDate, 4);
+  for (const b of prevBudgets) {
+    for (const env of b.envelopes) {
+      for (const t of (env.actuals || [])) {
+        if (t.trackingCategory && t.trackingCategory.name && t.trackingCategory.name !== 'blacklist') {
+          const key = `${t.transactionDate || t.billingDate}_${Math.abs(t.billingAmount || 0)}_${t.businessName}`;
+          categoryOverrideMap[key] = t.trackingCategory.name;
+        }
+      }
+    }
+  }
+} catch (e) {
+  // Ignore errors fetching previous budgets
+}
+// Also add current budget trackingCategory overrides
+for (const t of txns) {
+  if (t.trackingCategory && t.trackingCategory.name && t.trackingCategory.name !== 'blacklist') {
+    const key = `${t.transactionDate || t.billingDate}_${Math.abs(t.billingAmount || 0)}_${t.businessName}`;
+    categoryOverrideMap[key] = t.trackingCategory.name;
+  }
+}
+
 // Use user-overridden category (trackingCategory.name) when available, fall back to system category (expense)
 const resolveCategory = (t) => t.trackingCategory?.name || t.expense;
 
@@ -291,4 +317,5 @@ console.log(JSON.stringify({
   totalExpenses: txns.filter(tx => !tx.isIncome).reduce((s, t) => s + Math.abs(t.billingAmount || 0), 0),
   trajectory,
   healthScore,
+  categoryOverrides: categoryOverrideMap,
 }));
