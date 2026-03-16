@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import './index.css';
-import { LayoutDashboard, Wallet, ArrowRightLeft, Lightbulb, BarChart2, PieChart, SlidersHorizontal, CalendarDays, RefreshCw, Sun, Moon, BriefcaseBusiness } from 'lucide-react';
+import { LayoutDashboard, Wallet, ArrowRightLeft, Lightbulb, BarChart2, PieChart, SlidersHorizontal, CalendarDays, RefreshCw, Sun, Moon, BriefcaseBusiness, Pin, PinOff } from 'lucide-react';
 import Overview from './components/Overview';
 import CashFlow from './components/CashFlow';
 import Transactions from './components/Transactions';
@@ -87,6 +87,7 @@ function App() {
     const [refreshing, setRefreshing] = useState(false);
     const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
     const [drillCategory, setDrillCategory] = useState<string | null>(null);
+    const [monthBarPinned, setMonthBarPinned] = useState(false);
 
     const toggleMonth = useCallback((m: string, e: React.MouseEvent) => {
         if (e.metaKey || e.ctrlKey) {
@@ -222,6 +223,7 @@ function App() {
                 <div className="glass-panel animate-fade-in" style={{
                     padding: '8px 16px', marginBottom: '12px',
                     display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0,
+                    ...(monthBarPinned ? { position: 'sticky' as const, top: 0, zIndex: 10 } : {}),
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', flexShrink: 0 }}>
                         <CalendarDays size={14} />
@@ -283,6 +285,18 @@ function App() {
                                 {refreshMsg}
                             </span>
                         )}
+
+                        <button onClick={() => setMonthBarPinned(p => !p)} title={monthBarPinned ? 'Unpin bar' : 'Pin bar to top'} style={{
+                            padding: '4px', borderRadius: '6px', fontSize: '11px',
+                            cursor: 'pointer', fontFamily: 'inherit',
+                            border: monthBarPinned ? '1px solid var(--accent-primary)' : '1px solid var(--border-light)',
+                            background: monthBarPinned ? 'rgba(0,240,255,0.12)' : 'rgba(255,255,255,0.03)',
+                            color: monthBarPinned ? 'var(--accent-primary)' : 'var(--text-muted)',
+                            display: 'flex', alignItems: 'center',
+                            transition: 'all 0.2s',
+                        }}>
+                            {monthBarPinned ? <PinOff size={12} /> : <Pin size={12} />}
+                        </button>
                     </div>
                 </div>
 

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { AlertTriangle, CheckCircle2, AlertCircle, Sparkles, Key, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, AlertCircle, Sparkles, Key, ChevronDown, ChevronUp, RefreshCw, Download, Mail } from 'lucide-react';
 import trendsData from '../data/trends.json';
 import balanceData from '../data/balance.json';
 import spendingData from '../data/spending.json';
@@ -341,6 +341,61 @@ export default function Advisor() {
         }
     };
 
+    // Convert report to plain text for email
+    const reportToText = () => {
+        if (!aiReport || aiReport._raw) return aiReport?._raw || '';
+        const lines = [];
+        lines.push('FINANCIAL ADVISORY REPORT');
+        lines.push('========================\n');
+        if (aiReport.executiveSummary) lines.push(`Executive Summary\n${aiReport.executiveSummary}\n`);
+        if (aiReport.keyMetrics?.length) {
+            lines.push('Key Metrics');
+            aiReport.keyMetrics.forEach(m => {
+                const val = m.format === 'currency' ? formatCurrency(m.value) : m.format === 'percent' ? `${m.value}%` : String(m.value);
+                lines.push(`  ${m.label}: ${val} (${m.trend}) - ${m.insight || ''}`);
+            });
+            lines.push('');
+        }
+        if (aiReport.topFindings?.length) {
+            lines.push('Key Findings');
+            aiReport.topFindings.forEach(f => lines.push(`  [${f.severity.toUpperCase()}] ${f.title}: ${f.detail}\n  Action: ${f.action}\n`));
+        }
+        if (aiReport.improvementPlan?.length) {
+            lines.push('Improvement Plan');
+            aiReport.improvementPlan.forEach(s => lines.push(`  Step ${s.step}: ${s.title}\n  ${s.description}${s.targetSaving ? `\n  Potential saving: ${formatCurrency(s.targetSaving)}/month` : ''}\n`));
+        }
+        if (aiReport.categoryTargets?.length) {
+            lines.push('Category Targets');
+            aiReport.categoryTargets.forEach(c => lines.push(`  ${c.category}: ${formatCurrency(c.current)} -> ${formatCurrency(c.target)} | ${c.strategy}`));
+            lines.push('');
+        }
+        if (aiReport.riskMatrix?.length) {
+            lines.push('Risk Assessment');
+            aiReport.riskMatrix.forEach(r => lines.push(`  [${r.level.toUpperCase()}] ${r.risk}: ${r.mitigation}`));
+            lines.push('');
+        }
+        if (aiReport.monthlyChecklist?.length) {
+            lines.push('Monthly Action Items');
+            aiReport.monthlyChecklist.forEach(item => lines.push(`  [ ] ${item}`));
+            lines.push('');
+        }
+        if (aiReport.longTermOutlook) lines.push(`Long-Term Outlook\n${aiReport.longTermOutlook}`);
+        // Add rule findings
+        lines.push('\n---\nAutomated Findings');
+        findings.forEach(f => lines.push(`  [${f.severity.toUpperCase()}] ${f.title}: ${f.finding}`));
+        return lines.join('\n');
+    };
+
+    const handleSavePdf = () => {
+        window.print();
+    };
+
+    const handleEmail = () => {
+        const subject = encodeURIComponent(`Financial Advisory Report - ${new Date().toLocaleDateString()}`);
+        const body = encodeURIComponent(reportToText());
+        window.open(`mailto:?subject=${subject}&body=${body}`, '_self');
+    };
+
     const criticalCount = findings.filter(f => f.severity === 'critical').length;
     const warningCount = findings.filter(f => f.severity === 'warning').length;
     const goodCount = findings.filter(f => f.severity === 'success').length;
@@ -418,7 +473,7 @@ export default function Advisor() {
                 </div>
 
                 {/* API Key input */}
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '16px' }}>
+                <div className="no-print" style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '16px' }}>
                     <Key size={14} color="var(--text-muted)" />
                     <input
                         type="password"
@@ -447,10 +502,33 @@ export default function Advisor() {
                         {aiLoading ? <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={12} />}
                         {aiLoading ? 'Generating...' : aiReport ? 'Regenerate' : 'Generate Report'}
                     </button>
+
+                    {(aiReport || findings.length > 0) && (
+                        <>
+                            <button onClick={handleSavePdf} className="no-print" style={{
+                                padding: '8px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                                cursor: 'pointer', fontFamily: 'inherit',
+                                border: '1px solid var(--border-light)', background: 'rgba(255,255,255,0.04)',
+                                color: 'var(--text-secondary)',
+                                display: 'flex', alignItems: 'center', gap: '6px',
+                            }}>
+                                <Download size={12} /> Save PDF
+                            </button>
+                            <button onClick={handleEmail} className="no-print" style={{
+                                padding: '8px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                                cursor: 'pointer', fontFamily: 'inherit',
+                                border: '1px solid var(--border-light)', background: 'rgba(255,255,255,0.04)',
+                                color: 'var(--text-secondary)',
+                                display: 'flex', alignItems: 'center', gap: '6px',
+                            }}>
+                                <Mail size={12} /> Email
+                            </button>
+                        </>
+                    )}
                 </div>
 
                 {!apiKey && (
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    <p className="no-print" style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
                         Enter your Anthropic API key to generate a comprehensive AI-powered advisory report. Your key is stored locally and never sent to our servers.
                     </p>
                 )}
@@ -462,7 +540,9 @@ export default function Advisor() {
                 )}
 
                 {aiReport && !aiReport._raw && (
-                    <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div className="print-report" style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div className="print-title" style={{ display: 'none' }}>Financial Advisory Report</div>
+                        <div className="print-date" style={{ display: 'none' }}>Generated {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
 
                         {/* Executive Summary + Risk Gauge */}
                         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>

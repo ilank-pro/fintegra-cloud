@@ -335,34 +335,7 @@ export default function Overview({ selectedMonths, availableMonths }) {
                 );
             })()}
 
-            <div className="metrics-grid">
-                {cards.map(({ icon, iconColor, label, sub, isNegative, render }, i) => (
-                        <div
-                        key={label}
-                        className={`metric-card glass-panel${isNegative ? ' metric-card-negative' : ''}`}
-                        style={{
-                            opacity: mounted ? 1 : 0,
-                            transform: mounted ? 'translateY(0)' : 'translateY(20px)',
-                            transition: `opacity 0.45s ease ${i * 0.07}s, transform 0.45s ease ${i * 0.07}s`,
-                        }}
-                    >
-                        <div className="metric-header">
-                            <div className="metric-icon flex-center" style={{
-                                color: iconColor,
-                                background: 'rgba(10, 12, 16, 0.3)',
-                                boxShadow: `0 0 15px ${iconColor}22`
-                            }}>{icon}</div>
-                            <span style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>{label}</span>
-                        </div>
-                        <div className="metric-value" style={{ fontWeight: 800, letterSpacing: '-1.5px', marginTop: '4px' }}>
-                            {mounted ? render(i * 70) : '₪0'}
-                        </div>
-                        <div className="text-muted" style={{ fontSize: '11px', fontWeight: 500, opacity: 0.8 }}>{sub}</div>
-                    </div>
-                ))}
-            </div>
-
-            {/* Current Month Cash Flow Trajectory */}
+            {/* EOM Cash Flow Projection */}
             {trajectoryData?.cashflow && (() => {
                 const traj = trajectoryData;
                 const cf = traj.cashflow;
@@ -379,10 +352,10 @@ export default function Overview({ selectedMonths, availableMonths }) {
                     <div
                         className="glass-panel"
                         style={{
-                            marginTop: '24px', padding: '24px',
+                            padding: '24px', marginBottom: '24px',
                             opacity: mounted ? 1 : 0,
                             transform: mounted ? 'translateY(0)' : 'translateY(20px)',
-                            transition: 'opacity 0.45s ease 0.45s, transform 0.45s ease 0.45s',
+                            transition: 'opacity 0.45s ease 0.4s, transform 0.45s ease 0.4s',
                         }}
                     >
                         <div className="flex-between" style={{ marginBottom: '20px' }}>
@@ -395,7 +368,6 @@ export default function Overview({ selectedMonths, availableMonths }) {
                             </span>
                         </div>
 
-                        {/* Summary cards */}
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
                             <div style={{ padding: '16px', background: 'rgba(0,255,159,0.04)', borderRadius: '10px', border: '1px solid rgba(0,255,159,0.12)' }}>
                                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>Projected Income</div>
@@ -421,7 +393,6 @@ export default function Overview({ selectedMonths, availableMonths }) {
                             </div>
                         </div>
 
-                        {/* Progress bars */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
                             <div>
                                 <div className="flex-between" style={{ marginBottom: '4px' }}>
@@ -449,7 +420,6 @@ export default function Overview({ selectedMonths, availableMonths }) {
                             </div>
                         </div>
 
-                        {/* Pending expenses */}
                         {cf.pendingExpenses?.length > 0 && (
                             <div>
                                 <button
@@ -484,6 +454,33 @@ export default function Overview({ selectedMonths, availableMonths }) {
                     </div>
                 );
             })()}
+
+            <div className="metrics-grid">
+                {cards.map(({ icon, iconColor, label, sub, isNegative, render }, i) => (
+                        <div
+                        key={label}
+                        className={`metric-card glass-panel${isNegative ? ' metric-card-negative' : ''}`}
+                        style={{
+                            opacity: mounted ? 1 : 0,
+                            transform: mounted ? 'translateY(0)' : 'translateY(20px)',
+                            transition: `opacity 0.45s ease ${i * 0.07}s, transform 0.45s ease ${i * 0.07}s`,
+                        }}
+                    >
+                        <div className="metric-header">
+                            <div className="metric-icon flex-center" style={{
+                                color: iconColor,
+                                background: 'rgba(10, 12, 16, 0.3)',
+                                boxShadow: `0 0 15px ${iconColor}22`
+                            }}>{icon}</div>
+                            <span style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>{label}</span>
+                        </div>
+                        <div className="metric-value" style={{ fontWeight: 800, letterSpacing: '-1.5px', marginTop: '4px' }}>
+                            {mounted ? render(i * 70) : '₪0'}
+                        </div>
+                        <div className="text-muted" style={{ fontSize: '11px', fontWeight: 500, opacity: 0.8 }}>{sub}</div>
+                    </div>
+                ))}
+            </div>
 
             {/* (Health score moved to top of page) */}
         </div>

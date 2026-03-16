@@ -129,11 +129,16 @@ for (const env of budget.envelopes) {
       expectedIncome += amt;
     } else {
       expectedExpenses += amt;
+      const tc = env.details?.trackingCategory;
+      const pendingName = env.details?.businessName
+        || (tc ? `${tc.icon || ''} ${tc.name} (budget)`.trim() : null)
+        || env.details?.expense
+        || 'Unknown';
       pendingItems.push({
-        name: env.details?.businessName || env.details?.expense || 'Unknown',
+        name: pendingName,
         amount: amt,
         date: env.details?.transactionDate?.slice(0, 10) || null,
-        category: env.details?.expense || '',
+        category: env.details?.expense || tc?.name || '',
       });
     }
   }

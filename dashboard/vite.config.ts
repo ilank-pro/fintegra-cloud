@@ -179,17 +179,20 @@ function refreshDataPlugin() {
             allTxns.push(t)
             addedTxns++
           }
-          // Build category override map from current budget (user overrides apply to all months)
+          // Build per-transaction category override map (keyed by date_amount_businessName)
+          // Same merchant can have different user categories for different transactions
           const categoryOverrides = new Map<string, string>()
           for (const t of current.transactions) {
-            if (t.category && t.businessName) {
-              categoryOverrides.set(t.businessName, t.category)
+            if (t.category && t.date && t.businessName) {
+              const key = `${t.date}_${t.amount}_${t.businessName}`
+              categoryOverrides.set(key, t.category)
             }
           }
           // Apply overrides to ALL transactions (including historical CLI-fetched ones)
           let overridden = 0
           allTxns = allTxns.map((t: any) => {
-            const override = categoryOverrides.get(t.businessName)
+            const key = `${t.date}_${t.amount}_${t.businessName}`
+            const override = categoryOverrides.get(key)
             if (override && t.category !== override) {
               overridden++
               return { ...t, category: override }
