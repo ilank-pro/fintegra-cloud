@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import './index.css';
-import { LayoutDashboard, Wallet, ArrowRightLeft, Lightbulb, BarChart2, PieChart, SlidersHorizontal, CalendarDays, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, Wallet, ArrowRightLeft, Lightbulb, BarChart2, PieChart, SlidersHorizontal, CalendarDays, RefreshCw, Sun, Moon } from 'lucide-react';
 import Overview from './components/Overview';
 import CashFlow from './components/CashFlow';
 import Transactions from './components/Transactions';
@@ -64,6 +64,18 @@ function buildAvailableMonths() {
 
 function App() {
     const [activeTab, setActiveTab] = useState('overview');
+    const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+        return (localStorage.getItem('fintegra-theme') as 'dark' | 'light') || 'dark';
+    });
+
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('fintegra-theme', theme);
+    }, [theme]);
+
+    const toggleTheme = useCallback(() => {
+        setTheme(t => t === 'dark' ? 'light' : 'dark');
+    }, []);
 
     const availableMonths = useMemo(() => buildAvailableMonths(), []);
     const [selectedMonths, setSelectedMonths] = useState<Set<string>>(() => {
@@ -171,6 +183,18 @@ function App() {
                         </button>
                     ))}
                 </nav>
+
+                <button onClick={toggleTheme} style={{
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: '10px 16px', marginBottom: '16px',
+                    background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-light)',
+                    borderRadius: '10px', color: 'var(--text-secondary)', cursor: 'pointer',
+                    fontSize: '13px', fontWeight: 500, fontFamily: 'inherit', transition: 'all 0.2s',
+                    width: '100%',
+                }}>
+                    {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                    <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+                </button>
 
                 <div className="user-profile">
                     <div className="avatar flex-center">IK</div>

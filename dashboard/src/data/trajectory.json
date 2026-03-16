@@ -1,15 +1,15 @@
 {
   "budgetDate": "2026-03",
   "cashflowStartDay": 1,
-  "daysElapsed": 15,
+  "daysElapsed": 16,
   "daysInMonth": 31,
-  "pctMonthElapsed": 48.4,
+  "pctMonthElapsed": 51.6,
   "categories": [
     {
       "name": "פנאי",
       "budgeted": 186.8,
       "actual": 714.0999999999999,
-      "projected": 1475.8066666666666,
+      "projected": 1383.56875,
       "historyAverage": 0,
       "basedOnHistoryAverage": false,
       "pctBudgetUsed": 382.3,
@@ -20,7 +20,7 @@
       "name": "תשלומים",
       "budgeted": 11878.509999999998,
       "actual": 11878.529999999999,
-      "projected": 24548.962,
+      "projected": 23014.651874999996,
       "historyAverage": 0,
       "basedOnHistoryAverage": false,
       "pctBudgetUsed": 100,
@@ -28,10 +28,21 @@
       "txnCount": 8
     },
     {
+      "name": "ארנונה",
+      "budgeted": 2224,
+      "actual": 2212.8,
+      "projected": 4287.3,
+      "historyAverage": 0,
+      "basedOnHistoryAverage": false,
+      "pctBudgetUsed": 99.5,
+      "onTrack": false,
+      "txnCount": 1
+    },
+    {
       "name": "דיגיטל",
       "budgeted": 771.18,
       "actual": 702.96,
-      "projected": 1452.784,
+      "projected": 1361.9850000000001,
       "historyAverage": 0,
       "basedOnHistoryAverage": false,
       "pctBudgetUsed": 91.2,
@@ -42,7 +53,7 @@
       "name": "עמלות",
       "budgeted": 130.64,
       "actual": 85.49,
-      "projected": 176.67933333333332,
+      "projected": 165.636875,
       "historyAverage": 0,
       "basedOnHistoryAverage": false,
       "pctBudgetUsed": 65.4,
@@ -50,10 +61,21 @@
       "txnCount": 5
     },
     {
+      "name": "משכנתא",
+      "budgeted": 7661.55,
+      "actual": 3967.72,
+      "projected": 7687.4574999999995,
+      "historyAverage": 0,
+      "basedOnHistoryAverage": false,
+      "pctBudgetUsed": 51.8,
+      "onTrack": true,
+      "txnCount": 1
+    },
+    {
       "name": "ביטוח",
       "budgeted": 2434.39,
       "actual": 691.1700000000001,
-      "projected": 1428.4180000000001,
+      "projected": 1339.1418750000003,
       "historyAverage": 0,
       "basedOnHistoryAverage": false,
       "pctBudgetUsed": 28.4,
@@ -64,7 +86,7 @@
       "name": "פארמה",
       "budgeted": 0,
       "actual": 805.74,
-      "projected": 1665.1960000000001,
+      "projected": 1561.12125,
       "historyAverage": 1308.4333333333334,
       "basedOnHistoryAverage": true,
       "pctBudgetUsed": 0,
@@ -75,7 +97,7 @@
       "name": "כללי",
       "budgeted": -1282.72,
       "actual": 3081,
-      "projected": 6367.400000000001,
+      "projected": 5969.4375,
       "historyAverage": 0,
       "basedOnHistoryAverage": false,
       "pctBudgetUsed": 0,
@@ -83,10 +105,21 @@
       "txnCount": 3
     },
     {
+      "name": "__saving-hidden-category__",
+      "budgeted": 0,
+      "actual": 1800,
+      "projected": 3487.5,
+      "historyAverage": 0,
+      "basedOnHistoryAverage": false,
+      "pctBudgetUsed": 0,
+      "onTrack": true,
+      "txnCount": 1
+    },
+    {
       "name": "כלכלה",
       "budgeted": 0,
-      "actual": 3499.79,
-      "projected": 7232.899333333334,
+      "actual": 3500.29,
+      "projected": 6781.811875,
       "historyAverage": 7008.556666666667,
       "basedOnHistoryAverage": false,
       "pctBudgetUsed": 0,
@@ -97,7 +130,7 @@
       "name": "תרומה",
       "budgeted": 0,
       "actual": 404.06,
-      "projected": 835.0573333333334,
+      "projected": 782.86625,
       "historyAverage": 646.7800000000001,
       "basedOnHistoryAverage": false,
       "pctBudgetUsed": 0,
@@ -108,7 +141,7 @@
       "name": "ביגוד והנעלה",
       "budgeted": 0,
       "actual": 318,
-      "projected": 657.1999999999999,
+      "projected": 616.125,
       "historyAverage": 804,
       "basedOnHistoryAverage": false,
       "pctBudgetUsed": 0,
@@ -119,7 +152,7 @@
       "name": "חינוך",
       "budgeted": 0,
       "actual": 2225.2,
-      "projected": 4598.746666666667,
+      "projected": 4311.325,
       "historyAverage": 3756.8666666666663,
       "basedOnHistoryAverage": false,
       "pctBudgetUsed": 0,
@@ -129,19 +162,19 @@
     {
       "name": "אוכל בחוץ",
       "budgeted": 0,
-      "actual": 1414,
-      "projected": 2922.2666666666664,
+      "actual": 1733,
+      "projected": 3357.6875,
       "historyAverage": 2886.2999999999997,
       "basedOnHistoryAverage": true,
       "pctBudgetUsed": 0,
       "onTrack": true,
-      "txnCount": 16
+      "txnCount": 19
     },
     {
       "name": "רכב",
       "budgeted": 0,
       "actual": 3519.93,
-      "projected": 7274.521999999999,
+      "projected": 6819.864375,
       "historyAverage": 1840.0633333333333,
       "basedOnHistoryAverage": true,
       "pctBudgetUsed": 0,
@@ -152,7 +185,7 @@
       "name": "סליקת אשראי",
       "budgeted": 0,
       "actual": 226.54,
-      "projected": 468.18266666666665,
+      "projected": 438.92125,
       "historyAverage": 0,
       "basedOnHistoryAverage": false,
       "pctBudgetUsed": 0,
@@ -162,19 +195,8 @@
     {
       "name": "העברות",
       "budgeted": -3827.7799999999997,
-      "actual": 2058,
-      "projected": 4253.2,
-      "historyAverage": 0,
-      "basedOnHistoryAverage": false,
-      "pctBudgetUsed": 0,
-      "onTrack": true,
-      "txnCount": 4
-    },
-    {
-      "name": "קניות",
-      "budgeted": 0,
-      "actual": 555.9,
-      "projected": 1148.86,
+      "actual": 2108,
+      "projected": 4084.25,
       "historyAverage": 0,
       "basedOnHistoryAverage": false,
       "pctBudgetUsed": 0,
@@ -182,15 +204,26 @@
       "txnCount": 5
     },
     {
-      "name": "ארנונה",
-      "budgeted": 2224,
-      "actual": 0,
-      "projected": 0,
+      "name": "קניות",
+      "budgeted": 0,
+      "actual": 556,
+      "projected": 1077.25,
       "historyAverage": 0,
       "basedOnHistoryAverage": false,
       "pctBudgetUsed": 0,
       "onTrack": true,
-      "txnCount": 0
+      "txnCount": 5
+    },
+    {
+      "name": "בריאות",
+      "budgeted": 0,
+      "actual": 35,
+      "projected": 67.8125,
+      "historyAverage": 0,
+      "basedOnHistoryAverage": false,
+      "pctBudgetUsed": 0,
+      "onTrack": true,
+      "txnCount": 1
     },
     {
       "name": "דיור",
@@ -248,17 +281,6 @@
       "txnCount": 0
     },
     {
-      "name": "משכנתא",
-      "budgeted": 7661.55,
-      "actual": 0,
-      "projected": 0,
-      "historyAverage": 0,
-      "basedOnHistoryAverage": false,
-      "pctBudgetUsed": 0,
-      "onTrack": true,
-      "txnCount": 0
-    },
-    {
       "name": "קצבאות",
       "budgeted": -276,
       "actual": 0,
@@ -293,13 +315,13 @@
     }
   ],
   "cashflow": {
-    "actualIncome": 55907.12,
+    "actualIncome": 60107.12,
     "expectedIncome": 0,
-    "totalIncome": 55907.12,
-    "actualExpenses": 32180.410000000014,
-    "expectedExpenses": 43859.14333333335,
-    "totalExpenses": 76039.55333333336,
-    "projectedNet": -20132.433333333356,
+    "totalIncome": 60107.12,
+    "actualExpenses": 40565.530000000006,
+    "expectedExpenses": 32173.593333333352,
+    "totalExpenses": 72739.12333333335,
+    "projectedNet": -12632.003333333349,
     "pendingExpenses": [
       {
         "name": "Unknown",
@@ -350,30 +372,6 @@
         "category": "תקשורת"
       },
       {
-        "name": "מועצה מקומית תל מונד - הו\"ק",
-        "amount": 2224,
-        "date": "2026-03-15",
-        "category": "ארנונה"
-      },
-      {
-        "name": "מיטב דש גמל-י",
-        "amount": 1800,
-        "date": "2026-03-15",
-        "category": "השקעה וחיסכון"
-      },
-      {
-        "name": "לאומי למשכנת-י",
-        "amount": 7661.55,
-        "date": "2026-03-15",
-        "category": "משכנתא"
-      },
-      {
-        "name": "Google One",
-        "amount": 8,
-        "date": "2026-03-15",
-        "category": "דיגיטל"
-      },
-      {
         "name": "HOT",
         "amount": 176.23,
         "date": "2026-03-16",
@@ -388,6 +386,12 @@
       {
         "name": "PAYPAL *KESHETBROAD",
         "amount": 13.9,
+        "date": "2026-03-17",
+        "category": "דיגיטל"
+      },
+      {
+        "name": "Google One             650-2530000   US",
+        "amount": 8,
         "date": "2026-03-17",
         "category": "דיגיטל"
       },

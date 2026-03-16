@@ -5,13 +5,18 @@
     "count": 8
   },
   {
+    "name": "משכנתא",
+    "total": 3967.72,
+    "count": 1
+  },
+  {
     "name": "רכב",
     "total": 3519.93,
     "count": 7
   },
   {
     "name": "כלכלה",
-    "total": 3499.79,
+    "total": 3500.29,
     "count": 25
   },
   {
@@ -25,14 +30,24 @@
     "count": 4
   },
   {
+    "name": "ארנונה",
+    "total": 2212.8,
+    "count": 1
+  },
+  {
     "name": "העברות",
-    "total": 2058,
-    "count": 4
+    "total": 2108,
+    "count": 5
+  },
+  {
+    "name": "__saving-hidden-category__",
+    "total": 1800,
+    "count": 1
   },
   {
     "name": "אוכל בחוץ",
-    "total": 1414,
-    "count": 16
+    "total": 1733,
+    "count": 19
   },
   {
     "name": "פארמה",
@@ -56,7 +71,7 @@
   },
   {
     "name": "קניות",
-    "total": 555.9,
+    "total": 556,
     "count": 5
   },
   {
@@ -78,5 +93,10 @@
     "name": "עמלות",
     "total": 85.49,
     "count": 5
+  },
+  {
+    "name": "בריאות",
+    "total": 35,
+    "count": 1
   }
 ]

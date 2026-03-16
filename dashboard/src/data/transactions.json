@@ -1211,7 +1211,7 @@
     "date": "2026-02-15",
     "amount": 1800,
     "businessName": "מיטב דש גמל-י",
-    "category": "השקעה וחיסכון",
+    "category": "__saving-hidden-category__",
     "source": "leumiBank",
     "isIncome": false
   },
@@ -3483,7 +3483,7 @@
     "date": "2026-01-15",
     "amount": 1800,
     "businessName": "מיטב דש גמל-י",
-    "category": "השקעה וחיסכון",
+    "category": "__saving-hidden-category__",
     "source": "leumiBank",
     "isIncome": false
   },
@@ -5907,7 +5907,7 @@
     "date": "2025-12-15",
     "amount": 1800,
     "businessName": "מיטב דש גמל-י",
-    "category": "השקעה וחיסכון",
+    "category": "__saving-hidden-category__",
     "source": "leumiBank",
     "isIncome": false
   },
@@ -7384,6 +7384,15 @@
     "isIncome": false
   },
   {
+    "date": "2026-03-15",
+    "amount": 2212.8,
+    "businessName": "מועצה מקומית תל מונד - הו",
+    "category": "ארנונה",
+    "source": "cal",
+    "isIncome": false,
+    "isTemp": true
+  },
+  {
     "date": "2026-03-01",
     "amount": 184.31,
     "businessName": "AMAZON MKTPL*B905O8GR0 Amzn.com/bill US",
@@ -7609,13 +7618,40 @@
     "isTemp": false
   },
   {
-    "date": "2026-03-14",
+    "date": "2026-03-15",
+    "amount": 4200,
+    "businessName": "בנק אוצר החיל",
+    "category": "העברות",
+    "source": "leumiBank",
+    "isIncome": true,
+    "isTemp": false
+  },
+  {
+    "date": "2026-03-15",
+    "amount": 1800,
+    "businessName": "מיטב דש גמל-י",
+    "category": "__saving-hidden-category__",
+    "source": "leumiBank",
+    "isIncome": false,
+    "isTemp": false
+  },
+  {
+    "date": "2026-03-15",
+    "amount": 3967.72,
+    "businessName": "לאומי למשכנת-י",
+    "category": "משכנתא",
+    "source": "leumiBank",
+    "isIncome": false,
+    "isTemp": false
+  },
+  {
+    "date": "2026-03-15",
     "amount": 8,
-    "businessName": "Google One               650-2530000  US",
+    "businessName": "Google One",
     "category": "דיגיטל",
     "source": "cal",
     "isIncome": false,
-    "isTemp": true
+    "isTemp": false
   },
   {
     "date": "2026-03-02",
@@ -7871,30 +7907,21 @@
   },
   {
     "date": "2026-03-13",
-    "amount": 287.5,
+    "amount": 288,
     "businessName": "carrefour תל מונד",
     "category": "כלכלה",
     "source": "cal",
     "isIncome": false,
-    "isTemp": true
+    "isTemp": false
   },
   {
     "date": "2026-03-13",
     "amount": 37.9,
-    "businessName": "קליית יבגי",
+    "businessName": "קליית יבגי תל מונד",
     "category": "כלכלה",
     "source": "cal",
     "isIncome": false,
-    "isTemp": true
-  },
-  {
-    "date": "2026-03-13",
-    "amount": 36,
-    "businessName": "טאבון דוד",
-    "category": "כלכלה",
-    "source": "cal",
-    "isIncome": false,
-    "isTemp": true
+    "isTemp": false
   },
   {
     "date": "2026-03-13",
@@ -7903,7 +7930,16 @@
     "category": "כלכלה",
     "source": "cal",
     "isIncome": false,
-    "isTemp": true
+    "isTemp": false
+  },
+  {
+    "date": "2026-03-13",
+    "amount": 36,
+    "businessName": "מאפיית הנביאים תל מונד",
+    "category": "כלכלה",
+    "source": "cal",
+    "isIncome": false,
+    "isTemp": false
   },
   {
     "date": "2026-03-05",
@@ -8188,6 +8224,33 @@
     "date": "2026-03-13",
     "amount": 100,
     "businessName": "ביסקוטי תל מונד",
+    "category": "אוכל בחוץ",
+    "source": "cal",
+    "isIncome": false,
+    "isTemp": false
+  },
+  {
+    "date": "2026-03-14",
+    "amount": 172,
+    "businessName": "WOLT",
+    "category": "אוכל בחוץ",
+    "source": "cal",
+    "isIncome": false,
+    "isTemp": false
+  },
+  {
+    "date": "2026-03-15",
+    "amount": 47,
+    "businessName": "אמריקן פיצה",
+    "category": "אוכל בחוץ",
+    "source": "cal",
+    "isIncome": false,
+    "isTemp": true
+  },
+  {
+    "date": "2026-03-15",
+    "amount": 100,
+    "businessName": "תסביך פלאפל",
     "category": "אוכל בחוץ",
     "source": "cal",
     "isIncome": false,
@@ -8501,9 +8564,27 @@
   },
   {
     "date": "2026-03-13",
-    "amount": 137.9,
+    "amount": 138,
     "businessName": "סאג- ' אלפי כלים בע\"מ",
     "category": "קניות",
+    "source": "cal",
+    "isIncome": false,
+    "isTemp": false
+  },
+  {
+    "date": "2026-03-15",
+    "amount": 50,
+    "businessName": "BIT                      beit dagan   IL",
+    "category": "העברות",
+    "source": "cal",
+    "isIncome": false,
+    "isTemp": true
+  },
+  {
+    "date": "2026-03-15",
+    "amount": 35,
+    "businessName": "אור ועזר בדיקת דם",
+    "category": "בריאות",
     "source": "cal",
     "isIncome": false,
     "isTemp": true

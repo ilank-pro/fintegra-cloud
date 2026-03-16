@@ -6,11 +6,11 @@
   "xpInLevel": 2,
   "scores": {
     "cashFlow": 0,
-    "emergencyFund": 13,
+    "emergencyFund": 11,
     "budgetAdherence": 99,
     "savingsGrowth": 70
   },
-  "streak": 1,
+  "streak": 0,
   "badges": [
     {
       "id": "first-positive",
@@ -72,7 +72,7 @@
   "challenge": {
     "title": "Improve Cash Flow",
     "desc": "Reduce spending by 10% this month",
-    "target": 65115,
+    "target": 74153,
     "metric": "expenses",
     "weakestDim": "Cash Flow",
     "weakestScore": 0
