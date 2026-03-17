@@ -122,7 +122,7 @@ const OWNERS = {
 
 export default function Pension() {
     const [allAccounts, setAllAccounts] = useState(initialAccounts);
-    const [activeOwner, setActiveOwner] = useState('ilan');
+    const [selectedOwners, setSelectedOwners] = useState(new Set(['ilan']));
     const [retirementAges, setRetirementAges] = useState({ ilan: 63, spouse: 65 });
     const [monthlySpending, setMonthlySpending] = useState(40000);
     const [importing, setImporting] = useState(false);
@@ -130,18 +130,48 @@ export default function Pension() {
     const [showAddRow, setShowAddRow] = useState(false);
     const [newAccount, setNewAccount] = useState({ name: '', company: '', currentBalance: 0, annualInterest: 4, monthlyDeposit: 0, depositStopAge: 63, monthlyPension: 0 });
 
+    const isCombined = selectedOwners.size > 1;
+    const activeOwner = isCombined ? 'ilan' : [...selectedOwners][0] || 'ilan'; // primary owner for imports/adds
     const ownerConfig = OWNERS[activeOwner] || OWNERS.ilan;
-    const accounts = useMemo(() => allAccounts.filter(a => (a.owner || 'ilan') === activeOwner), [allAccounts, activeOwner]);
-    const retirementAge = retirementAges[activeOwner];
-    const setRetirementAge = (age) => setRetirementAges(prev => ({ ...prev, [activeOwner]: age }));
+    const accounts = useMemo(() => allAccounts.filter(a => selectedOwners.has(a.owner || 'ilan')), [allAccounts, selectedOwners]);
+    const retirementAge = isCombined ? Math.max(...[...selectedOwners].map(o => retirementAges[o] || 63)) : retirementAges[activeOwner];
+    const setRetirementAge = (age) => {
+        if (isCombined) {
+            setRetirementAges(prev => Object.fromEntries([...selectedOwners].map(o => [o, age])));
+        } else {
+            setRetirementAges(prev => ({ ...prev, [activeOwner]: age }));
+        }
+        // Sync depositStopAge for all accounts of selected owner(s)
+        setAllAccounts(prev => prev.map(a =>
+            selectedOwners.has(a.owner || 'ilan') ? { ...a, depositStopAge: age } : a
+        ));
+    };
 
-    const currentAge = ownerConfig.age;
+    // For combined view, use the youngest age (longest projection)
+    const currentAge = isCombined
+        ? Math.min(...[...selectedOwners].map(o => OWNERS[o]?.age || 53))
+        : ownerConfig.age;
 
-    // Computed values — owner's accounts projected
+    const toggleOwner = (key, e) => {
+        if (e.metaKey || e.ctrlKey) {
+            setSelectedOwners(prev => {
+                const next = new Set(prev);
+                if (next.has(key)) { if (next.size > 1) next.delete(key); }
+                else next.add(key);
+                return next;
+            });
+        } else {
+            setSelectedOwners(new Set([key]));
+        }
+    };
+
+    // Computed values — project each account with its owner's age
     const totalToday = useMemo(() => accounts.reduce((s, a) => s + a.currentBalance, 0), [accounts]);
-    const projections = useMemo(() => accounts.map(a => ({
-        ...a, projected: projectAccountWithAge(a, retirementAge, currentAge),
-    })), [accounts, retirementAge, currentAge]);
+    const projections = useMemo(() => accounts.map(a => {
+        const ownerAge = OWNERS[a.owner || 'ilan']?.age || 53;
+        const ownerRet = retirementAges[a.owner || 'ilan'] || 63;
+        return { ...a, projected: projectAccountWithAge(a, ownerRet, ownerAge) };
+    }), [accounts, retirementAges]);
     const totalProjected = useMemo(() => projections.reduce((s, a) => s + a.projected, 0), [projections]);
     const totalMonthlyDeposit = useMemo(() => accounts.reduce((s, a) => s + a.monthlyDeposit, 0), [accounts]);
 
@@ -177,7 +207,13 @@ export default function Pension() {
 
     // Chart data — ALL accounts in trajectory
     const chartData = useMemo(() => {
-        const trajectory = buildTrajectory(accounts, retirementAge, monthlySpending, currentAge);
+        // For combined view, build trajectory using each account's owner age
+        const trajectoryAccounts = accounts.map(a => ({
+            ...a,
+            _ownerAge: OWNERS[a.owner || 'ilan']?.age || 53,
+            _ownerRet: retirementAges[a.owner || 'ilan'] || 63,
+        }));
+        const trajectory = buildTrajectory(trajectoryAccounts, retirementAge, monthlySpending, currentAge);
         const labels = trajectory.map(p => String(p.age));
         const values = trajectory.map(p => p.total);
 
@@ -328,19 +364,23 @@ export default function Pension() {
                         </div>
                     </div>
 
-                    {/* Owner sub-tabs */}
+                    {/* Owner sub-tabs (Cmd+Click to multi-select) */}
                     <div style={{ display: 'flex', gap: '4px' }}>
-                        {Object.entries(OWNERS).map(([key, cfg]) => (
-                            <button key={key} onClick={() => setActiveOwner(key)} style={{
-                                padding: '6px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-                                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s',
-                                border: activeOwner === key ? '1px solid var(--accent-primary)' : '1px solid var(--border-light)',
-                                background: activeOwner === key ? 'rgba(0,240,255,0.12)' : 'rgba(255,255,255,0.03)',
-                                color: activeOwner === key ? 'var(--accent-primary)' : 'var(--text-muted)',
-                            }}>
-                                {cfg.label}
-                            </button>
-                        ))}
+                        {Object.entries(OWNERS).map(([key, cfg]) => {
+                            const isSelected = selectedOwners.has(key);
+                            return (
+                                <button key={key} onClick={(e) => toggleOwner(key, e)} style={{
+                                    padding: '6px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                                    cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s',
+                                    border: isSelected ? '1px solid var(--accent-primary)' : '1px solid var(--border-light)',
+                                    background: isSelected ? 'rgba(0,240,255,0.12)' : 'rgba(255,255,255,0.03)',
+                                    color: isSelected ? 'var(--accent-primary)' : 'var(--text-muted)',
+                                }}>
+                                    {cfg.label}
+                                </button>
+                            );
+                        })}
+                        {isCombined && <span style={{ fontSize: '11px', color: 'var(--accent-primary)', alignSelf: 'center', marginLeft: '4px' }}>Combined</span>}
                     </div>
                 </div>
             </div>
@@ -348,7 +388,7 @@ export default function Pension() {
             {/* Per-owner Summary Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
                 {[
-                    { icon: <PiggyBank size={18} />, label: `${ownerConfig.label}'s Savings`, value: formatFull(totalToday), color: 'var(--accent-primary)', sub: `${accounts.length} accounts` },
+                    { icon: <PiggyBank size={18} />, label: isCombined ? 'Combined Savings' : `${ownerConfig.label}'s Savings`, value: formatFull(totalToday), color: 'var(--accent-primary)', sub: `${accounts.length} accounts` },
                     { icon: <TrendingUp size={18} />, label: `Projected at ${retirementAge}`, value: formatFull(totalProjected), color: 'var(--accent-success)', sub: `${retirementAge - currentAge} years growth` },
                     { icon: <Shield size={18} />, label: 'Max Affordable/mo', value: formatFull(maxAffordable), color: 'var(--accent-success)', sub: 'Savings last 25+ years' },
                     { icon: <Clock size={18} />, label: 'Lasts Until Age', value: yearsLasting >= 50 ? '90+' : String(depletionAge), color: yearsLasting >= 25 ? 'var(--accent-success)' : 'var(--accent-warning)', sub: `At ${formatFull(monthlySpending)}/mo spending` },

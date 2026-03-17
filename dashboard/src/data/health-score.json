@@ -1,28 +1,28 @@
 {
-  "composite": 40,
+  "composite": 46,
   "grade": "C",
-  "level": 4,
-  "levelTitle": "Building Habits",
-  "xpInLevel": 0,
+  "level": 5,
+  "levelTitle": "Making Progress",
+  "xpInLevel": 6,
   "scores": {
     "cashFlow": 0,
     "emergencyFund": 3,
     "budgetAdherence": 99,
     "savingsGrowth": 70,
-    "retirementReadiness": 47
+    "retirementReadiness": 75
   },
   "assetTiers": {
     "liquid": 11889.239999999998,
-    "accessible": 454011,
-    "longTerm": 1950597,
-    "totalNetWorth": 2416497.24
+    "accessible": 454011.75999999995,
+    "longTerm": 3749214.79,
+    "totalNetWorth": 4215115.79
   },
   "retirement": {
-    "projectedPension": 5994578.2077494105,
-    "sustainableMonthly": 20504.927359164703,
+    "projectedPension": 9689342.591832995,
+    "sustainableMonthly": 32297.80863944332,
     "targetMonthly": 43232.48766666666,
-    "totalSavings": 2404608,
-    "monthlyDeposits": 18130
+    "totalSavings": 4203226.55,
+    "monthlyDeposits": 23493.950000000004
   },
   "streak": 0,
   "badges": [

@@ -252,23 +252,32 @@ const savingsScore = clamp(Math.round(
 const pensionFile = loadJson('pension-accounts.json');
 const pensionAccounts = Array.isArray(pensionFile) ? pensionFile : [];
 const totalPensionSavings = pensionAccounts.reduce((s, a) => s + (a.currentBalance || 0), 0);
-const totalMonthlyDeposit = pensionAccounts.reduce((s, a) => s + (a.monthlyDeposit || 0), 0);
-const totalMonthlyPension = pensionAccounts.reduce((s, a) => s + (a.monthlyPension || 0), 0);
-// Target: projected pension should cover 70% of current income
-const retirementAge = 63;
-const currentAge = 53;
-const yearsToRetire = retirementAge - currentAge;
-// Simple projection of total pension at retirement
-const avgPensionRate = pensionAccounts.length > 0
-  ? pensionAccounts.reduce((s, a) => s + (a.annualInterest || 0), 0) / pensionAccounts.length / 100
-  : 0.04;
-const projectedPension = totalPensionSavings * Math.pow(1 + avgPensionRate, yearsToRetire) + totalMonthlyDeposit * 12 * ((Math.pow(1 + avgPensionRate, yearsToRetire) - 1) / avgPensionRate);
+const totalPensionDeposits = pensionAccounts.reduce((s, a) => s + (a.monthlyDeposit || 0), 0);
+
+// Owner-aware projection: each account uses its owner's age and retirement
+const ownerAges = { ilan: 53, spouse: 51 };
+const ownerRetirements = { ilan: 63, spouse: 65 };
+let projectedPension = 0;
+for (const a of pensionAccounts) {
+  const ownerAge = ownerAges[a.owner] || 53;
+  const ownerRet = ownerRetirements[a.owner] || 63;
+  const yrs = Math.max(0, ownerRet - ownerAge);
+  const monthlyRate = (a.annualInterest || 4) / 100 / 12;
+  const depositMonths = Math.max(0, Math.min(a.depositStopAge || ownerRet, ownerRet) - ownerAge) * 12;
+  let bal = a.currentBalance || 0;
+  for (let m = 0; m < yrs * 12; m++) {
+    bal *= (1 + monthlyRate);
+    if (m < depositMonths) bal += (a.monthlyDeposit || 0);
+  }
+  projectedPension += bal;
+}
+
 // 4% withdrawal rule: projected * 0.04 / 12 = sustainable monthly income
-const sustainableMonthly = projectedPension * 0.04 / 12 + totalMonthlyPension;
+const sustainableMonthly = projectedPension * 0.04 / 12;
 const targetMonthly = avgIncome * 0.7; // 70% replacement
 const retirementScore = clamp(Math.round(targetMonthly > 0 ? (sustainableMonthly / targetMonthly) * 100 : 0));
 
-// 3-tier asset breakdown
+// 3-tier asset breakdown (household totals across both owners)
 const liquidAssetsTier = liquidAssets; // bank + bank savings
 const accessibleTier = pensionAccounts.filter(a => a.type === 'hishtalmut').reduce((s, a) => s + (a.currentBalance || 0), 0);
 const longTermTier = pensionAccounts.filter(a => a.type !== 'hishtalmut').reduce((s, a) => s + (a.currentBalance || 0), 0);
@@ -344,7 +353,7 @@ const healthScore = {
   },
   retirement: {
     projectedPension, sustainableMonthly, targetMonthly,
-    totalSavings: totalPensionSavings, monthlyDeposits: totalMonthlyDeposit,
+    totalSavings: totalPensionSavings, monthlyDeposits: totalPensionDeposits,
   },
   streak,
   badges,
