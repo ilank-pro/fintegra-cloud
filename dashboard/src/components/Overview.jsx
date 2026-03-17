@@ -217,6 +217,7 @@ export default function Overview({ selectedMonths, availableMonths }) {
         emergencyFund: `Emergency Fund Score measures how many months you can survive without income. It's calculated as liquid assets / avg monthly expenses. Target: 6 months of expenses saved. Even small monthly additions compound quickly.`,
         budgetAdherence: `Budget Adherence Score measures how well you stick to budgeted amounts. Each category is compared to its budget — weighted by size. To improve: review categories where you consistently overshoot and adjust either spending or budget targets.`,
         savingsGrowth: `Savings Growth Score measures if your savings are growing. It looks at your avg monthly savings rate relative to income. Target: save at least 5% of income monthly. Automate savings transfers to make this effortless.`,
+        retirementReadiness: `Retirement Readiness measures if your pension savings will sustain you after retirement. Based on the 4% withdrawal rule: can your projected savings provide 70% of your current income? Check the Pension tab for details.`,
     };
 
     const scoreLabels = [
@@ -224,6 +225,7 @@ export default function Overview({ selectedMonths, availableMonths }) {
         { key: 'emergencyFund', label: 'Emergency Fund', color: '#8b5cf6' },
         { key: 'budgetAdherence', label: 'Budget Adherence', color: '#10b981' },
         { key: 'savingsGrowth', label: 'Savings Growth', color: '#f59e0b' },
+        { key: 'retirementReadiness', label: 'Retirement', color: '#ec4899' },
     ];
 
     return (
@@ -352,6 +354,44 @@ export default function Overview({ selectedMonths, availableMonths }) {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* 3-Tier Net Worth */}
+            {healthScoreData?.assetTiers && (() => {
+                const tiers = healthScoreData.assetTiers;
+                const items = [
+                    { label: 'Liquid', sub: 'Bank + savings accounts', value: tiers.liquid, color: 'var(--accent-primary)', pct: tiers.totalNetWorth > 0 ? (tiers.liquid / tiers.totalNetWorth * 100) : 0 },
+                    { label: 'Accessible', sub: 'Hishtalmut funds (vested)', value: tiers.accessible, color: 'var(--accent-success)', pct: tiers.totalNetWorth > 0 ? (tiers.accessible / tiers.totalNetWorth * 100) : 0 },
+                    { label: 'Long-term', sub: 'Pension + insurance', value: tiers.longTerm, color: 'var(--accent-purple)', pct: tiers.totalNetWorth > 0 ? (tiers.longTerm / tiers.totalNetWorth * 100) : 0 },
+                ];
+                return (
+                    <div className="glass-panel" style={{
+                        padding: '20px', marginBottom: '24px', overflow: 'visible',
+                        opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(20px)',
+                        transition: 'opacity 0.45s ease 0.35s, transform 0.45s ease 0.35s',
+                    }}>
+                        <div className="flex-between" style={{ marginBottom: '14px' }}>
+                            <h3 style={{ fontWeight: 600, fontSize: '14px' }}>Total Net Worth</h3>
+                            <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--accent-success)' }}>{formatCurrency(tiers.totalNetWorth)}</span>
+                        </div>
+                        {/* Stacked bar */}
+                        <div style={{ display: 'flex', height: '12px', borderRadius: '6px', overflow: 'hidden', marginBottom: '14px' }}>
+                            {items.map(t => (
+                                <div key={t.label} style={{ width: `${t.pct}%`, background: t.color, opacity: 0.75, transition: 'width 0.6s ease' }} />
+                            ))}
+                        </div>
+                        {/* Tier cards */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                            {items.map(t => (
+                                <div key={t.label} style={{ padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', borderLeft: `3px solid ${t.color}` }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>{t.label}</div>
+                                    <div style={{ fontSize: '16px', fontWeight: 700, color: t.color }}>{formatCurrency(t.value)}</div>
+                                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t.sub} · {t.pct.toFixed(1)}%</div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 );

@@ -7,6 +7,7 @@ import progressData from '../data/progress.json';
 import trajectoryData from '../data/trajectory.json';
 import healthScoreData from '../data/health-score.json';
 import incomeData from '../data/income.json';
+import pensionData from '../data/pension-accounts.json';
 
 const formatCurrency = (val) => {
     if (!val && val !== 0) return '₪0';
@@ -213,14 +214,49 @@ function runRules() {
         });
     }
 
-    // ── Retirement ──
-    const pensionCat = spending.find(c => c.name === 'השקעה וחיסכון');
-    if (avgIncome > 0 && (!pensionCat || pensionCat.total / avgIncome < 0.1)) {
+    // ── Retirement & Pension ──
+    const pAccounts = Array.isArray(pensionData) ? pensionData : [];
+    const totalPension = pAccounts.reduce((s, a) => s + (a.currentBalance || 0), 0);
+    const totalPensionDeposits = pAccounts.reduce((s, a) => s + (a.monthlyDeposit || 0), 0);
+    const inactiveAccounts = pAccounts.filter(a => a.status === 'inactive');
+
+    if (totalPension > 0) {
+        const retirementScore = health.scores?.retirementReadiness || 0;
+        if (retirementScore >= 70) {
+            findings.push({
+                id: 'rt-on-track', category: 'Retirement', severity: 'success',
+                title: 'Retirement Savings On Track',
+                finding: `Your pension portfolio (${formatCurrency(totalPension)}) across ${pAccounts.length} accounts with ${formatCurrency(totalPensionDeposits)}/mo in deposits is building toward retirement readiness (score: ${retirementScore}/100).`,
+                recommendation: 'Continue current contribution levels. Consider reviewing fund performance annually and consolidating inactive accounts.',
+            });
+        } else {
+            findings.push({
+                id: 'rt-needs-attention', category: 'Retirement', severity: 'warning',
+                title: 'Retirement Savings May Fall Short',
+                finding: `Retirement readiness score is ${retirementScore}/100. Your ${formatCurrency(totalPension)} in pension savings with ${formatCurrency(totalPensionDeposits)}/mo deposits may not reach the target 70% income replacement.`,
+                recommendation: 'Consider increasing voluntary contributions (e.g., Gemel fund) or extending your working years. Even 2 extra years of contributions significantly improve the projection.',
+            });
+        }
+    }
+
+    if (inactiveAccounts.length > 0) {
+        const inactiveTotal = inactiveAccounts.reduce((s, a) => s + (a.currentBalance || 0), 0);
         findings.push({
-            id: 'rt-pension-low', category: 'Retirement', severity: 'info',
-            title: 'Review Pension & Retirement Contributions',
-            finding: `Investment & savings contributions are ${pensionCat ? (pensionCat.total / avgIncome * 100).toFixed(1) + '% of income' : 'not clearly visible in the data'}.`,
-            recommendation: 'Ensure your employer pension (keren pensia) contributions meet the legal minimum (6.5% employee + 6.5% employer). Consider adding to a keren hishtalmut for tax-advantaged savings.',
+            id: 'rt-inactive', category: 'Retirement', severity: 'info',
+            title: `${inactiveAccounts.length} Inactive Pension Account(s)`,
+            finding: `You have ${inactiveAccounts.length} inactive accounts totaling ${formatCurrency(inactiveTotal)}. These may have higher management fees or lower returns than active funds.`,
+            recommendation: 'Review inactive accounts for consolidation opportunities. Transferring to your active pension fund may reduce fees and simplify management.',
+        });
+    }
+
+    // Diversification check
+    const companies = new Set(pAccounts.map(a => a.company));
+    if (companies.size <= 2 && pAccounts.length >= 4) {
+        findings.push({
+            id: 'rt-diversification', category: 'Retirement', severity: 'info',
+            title: 'Limited Pension Provider Diversification',
+            finding: `Your ${pAccounts.length} accounts are managed by only ${companies.size} provider(s). Concentration in few providers increases institutional risk.`,
+            recommendation: 'This is informational — Israeli pension providers are well-regulated. However, comparing fund performance across providers annually is good practice.',
         });
     }
 
@@ -262,6 +298,18 @@ function buildDataSummary() {
         budgetAdherence: (traj.categories || []).filter(c => c.budgeted > 0).map(c => ({
             category: CATEGORY_TRANSLATIONS[c.name] || c.name,
             budgeted: c.budgeted, actual: c.actual, pctUsed: c.pctBudgetUsed,
+        })),
+        assetTiers: health.assetTiers,
+        retirement: health.retirement,
+        pensionAccounts: (Array.isArray(pensionData) ? pensionData : []).map(a => ({
+            name: a.nameEn || a.name,
+            type: a.type,
+            company: a.company,
+            status: a.status,
+            currentBalance: a.currentBalance,
+            annualInterest: a.annualInterest,
+            monthlyDeposit: a.monthlyDeposit,
+            monthlyPension: a.monthlyPension,
         })),
     };
 }

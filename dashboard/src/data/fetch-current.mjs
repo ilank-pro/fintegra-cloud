@@ -248,12 +248,39 @@ const savingsScore = clamp(Math.round(
   avgSavings > 0 ? 30 : 0
 ));
 
-// Composite
+// 5. Retirement Readiness Score (weight 20%)
+const pensionFile = loadJson('pension-accounts.json');
+const pensionAccounts = Array.isArray(pensionFile) ? pensionFile : [];
+const totalPensionSavings = pensionAccounts.reduce((s, a) => s + (a.currentBalance || 0), 0);
+const totalMonthlyDeposit = pensionAccounts.reduce((s, a) => s + (a.monthlyDeposit || 0), 0);
+const totalMonthlyPension = pensionAccounts.reduce((s, a) => s + (a.monthlyPension || 0), 0);
+// Target: projected pension should cover 70% of current income
+const retirementAge = 63;
+const currentAge = 53;
+const yearsToRetire = retirementAge - currentAge;
+// Simple projection of total pension at retirement
+const avgPensionRate = pensionAccounts.length > 0
+  ? pensionAccounts.reduce((s, a) => s + (a.annualInterest || 0), 0) / pensionAccounts.length / 100
+  : 0.04;
+const projectedPension = totalPensionSavings * Math.pow(1 + avgPensionRate, yearsToRetire) + totalMonthlyDeposit * 12 * ((Math.pow(1 + avgPensionRate, yearsToRetire) - 1) / avgPensionRate);
+// 4% withdrawal rule: projected * 0.04 / 12 = sustainable monthly income
+const sustainableMonthly = projectedPension * 0.04 / 12 + totalMonthlyPension;
+const targetMonthly = avgIncome * 0.7; // 70% replacement
+const retirementScore = clamp(Math.round(targetMonthly > 0 ? (sustainableMonthly / targetMonthly) * 100 : 0));
+
+// 3-tier asset breakdown
+const liquidAssetsTier = liquidAssets; // bank + bank savings
+const accessibleTier = pensionAccounts.filter(a => a.type === 'hishtalmut').reduce((s, a) => s + (a.currentBalance || 0), 0);
+const longTermTier = pensionAccounts.filter(a => a.type !== 'hishtalmut').reduce((s, a) => s + (a.currentBalance || 0), 0);
+const totalNetWorth = liquidAssetsTier + accessibleTier + longTermTier;
+
+// Composite (updated weights)
 const composite = Math.round(
-  cashFlowScore * 0.30 +
-  emergencyScore * 0.25 +
-  adherenceScore * 0.25 +
-  savingsScore * 0.20
+  cashFlowScore * 0.25 +
+  emergencyScore * 0.20 +
+  adherenceScore * 0.20 +
+  savingsScore * 0.15 +
+  retirementScore * 0.20
 );
 const grade = composite >= 80 ? 'A' : composite >= 60 ? 'B' : composite >= 40 ? 'C' : composite >= 20 ? 'D' : 'F';
 const level = Math.max(1, Math.min(10, Math.ceil(composite / 10)));
@@ -287,6 +314,7 @@ const scores = [
   { name: 'Emergency Fund', score: emergencyScore, dim: 'emergency' },
   { name: 'Budget Adherence', score: adherenceScore, dim: 'adherence' },
   { name: 'Savings Growth', score: savingsScore, dim: 'savings' },
+  { name: 'Retirement', score: retirementScore, dim: 'retirement' },
 ];
 const weakest = scores.reduce((w, s) => s.score < w.score ? s : w, scores[0]);
 
@@ -295,6 +323,7 @@ const challenges = {
   emergency: { title: 'Build Emergency Fund', desc: `Save ${Math.round(avgExpenses * 0.1).toLocaleString()} extra this month`, target: Math.round(avgExpenses * 0.1), metric: 'savings' },
   adherence: { title: 'Stay On Budget', desc: 'Keep all categories within budget this month', target: 100, metric: 'adherence' },
   savings: { title: 'Boost Savings', desc: `Increase monthly savings to ${Math.round(avgIncome * 0.05).toLocaleString()}`, target: Math.round(avgIncome * 0.05), metric: 'savings' },
+  retirement: { title: 'Review Retirement Plan', desc: 'Check your pension tab and ensure contributions are on track', target: 70, metric: 'retirement' },
 };
 const activeChallenge = challenges[weakest.dim] || challenges.cashflow;
 
@@ -305,6 +334,17 @@ const healthScore = {
     emergencyFund: emergencyScore,
     budgetAdherence: adherenceScore,
     savingsGrowth: savingsScore,
+    retirementReadiness: retirementScore,
+  },
+  assetTiers: {
+    liquid: liquidAssetsTier,
+    accessible: accessibleTier,
+    longTerm: longTermTier,
+    totalNetWorth,
+  },
+  retirement: {
+    projectedPension, sustainableMonthly, targetMonthly,
+    totalSavings: totalPensionSavings, monthlyDeposits: totalMonthlyDeposit,
   },
   streak,
   badges,

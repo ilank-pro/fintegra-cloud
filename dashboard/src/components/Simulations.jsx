@@ -9,6 +9,7 @@ import balanceData from '../data/balance.json';
 import trendsData from '../data/trends.json';
 import progressData from '../data/progress.json';
 import spendingData from '../data/spending.json';
+import pensionData from '../data/pension-accounts.json';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
@@ -185,7 +186,10 @@ function NetWorthTrajectory() {
         .reduce((s, a) => s + (Number(a.balanceAmount?.amount) || 0), 0);
     const investmentValue = (balanceData?.financialSummary?.securities || [])
         .reduce((s, sec) => s + (Number(sec.currentValue) || 0), 0);
-    const currentNetWorth = bankBalance + savingsBalance + investmentValue;
+    const liquidNetWorth = bankBalance + savingsBalance + investmentValue;
+    const pensionTotal = (Array.isArray(pensionData) ? pensionData : []).reduce((s, a) => s + (a.currentBalance || 0), 0);
+    const pensionMonthlyGrowth = (Array.isArray(pensionData) ? pensionData : []).reduce((s, a) => s + (a.monthlyDeposit || 0) + (a.currentBalance || 0) * ((a.annualInterest || 4) / 100 / 12), 0);
+    const currentNetWorth = liquidNetWorth + pensionTotal;
 
     const sorted = Array.isArray(trendsData) ? [...trendsData].sort((a, b) => a.month.localeCompare(b.month)) : [];
     const avgNet = sorted.length > 0 ? sorted.reduce((s, d) => s + (d.net || 0), 0) / sorted.length : 0;
@@ -196,15 +200,17 @@ function NetWorthTrajectory() {
     const labels = ['Today'];
     const currentLine = [currentNetWorth];
     const improvedLine = [currentNetWorth];
+    const liquidOnlyLine = [liquidNetWorth];
 
     for (let i = 1; i <= projMonths; i++) {
         labels.push(monthLabel(addMonthsToStr(lastMonth, i)));
-        currentLine.push(currentNetWorth + avgNet * i);
-        improvedLine.push(currentNetWorth + bestNet * i);
+        currentLine.push(currentNetWorth + (avgNet + pensionMonthlyGrowth) * i);
+        improvedLine.push(currentNetWorth + (bestNet + pensionMonthlyGrowth) * i);
+        liquidOnlyLine.push(liquidNetWorth + avgNet * i);
     }
 
-    const nw12Current = currentNetWorth + avgNet * 12;
-    const nw12Improved = currentNetWorth + bestNet * 12;
+    const nw12Current = currentNetWorth + (avgNet + pensionMonthlyGrowth) * 12;
+    const nw12Improved = currentNetWorth + (bestNet + pensionMonthlyGrowth) * 12;
 
     const chartData = {
         labels,
@@ -227,6 +233,15 @@ function NetWorthTrajectory() {
                 fill: true, tension: 0.3, borderWidth: 2,
                 pointRadius: 3,
                 borderDash: [6, 3],
+            },
+            {
+                label: 'Liquid Only (excl. pension)',
+                data: liquidOnlyLine,
+                borderColor: '#94a3b8',
+                backgroundColor: 'transparent',
+                tension: 0.3, borderWidth: 1.5,
+                pointRadius: 2,
+                borderDash: [4, 4],
             },
         ],
     };

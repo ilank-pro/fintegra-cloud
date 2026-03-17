@@ -1,14 +1,28 @@
 {
-  "composite": 42,
+  "composite": 40,
   "grade": "C",
-  "level": 5,
-  "levelTitle": "Making Progress",
-  "xpInLevel": 2,
+  "level": 4,
+  "levelTitle": "Building Habits",
+  "xpInLevel": 0,
   "scores": {
     "cashFlow": 0,
-    "emergencyFund": 11,
+    "emergencyFund": 3,
     "budgetAdherence": 99,
-    "savingsGrowth": 70
+    "savingsGrowth": 70,
+    "retirementReadiness": 47
+  },
+  "assetTiers": {
+    "liquid": 11889.239999999998,
+    "accessible": 454011,
+    "longTerm": 1950597,
+    "totalNetWorth": 2416497.24
+  },
+  "retirement": {
+    "projectedPension": 5994578.2077494105,
+    "sustainableMonthly": 20504.927359164703,
+    "targetMonthly": 43232.48766666666,
+    "totalSavings": 2404608,
+    "monthlyDeposits": 18130
   },
   "streak": 0,
   "badges": [
@@ -72,7 +86,7 @@
   "challenge": {
     "title": "Improve Cash Flow",
     "desc": "Reduce spending by 10% this month",
-    "target": 74153,
+    "target": 71158,
     "metric": "expenses",
     "weakestDim": "Cash Flow",
     "weakestScore": 0
