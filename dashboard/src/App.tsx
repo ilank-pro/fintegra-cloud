@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import './index.css';
-import { LayoutDashboard, Wallet, ArrowRightLeft, Lightbulb, BarChart2, PieChart, SlidersHorizontal, CalendarDays, RefreshCw, Sun, Moon, BriefcaseBusiness, Pin, PinOff } from 'lucide-react';
+import { LayoutDashboard, Wallet, ArrowRightLeft, Lightbulb, BarChart2, PieChart, SlidersHorizontal, CalendarDays, RefreshCw, Sun, Moon, BriefcaseBusiness, Pin, PinOff, PiggyBank } from 'lucide-react';
 import Overview from './components/Overview';
 import CashFlow from './components/CashFlow';
 import Transactions from './components/Transactions';
@@ -8,6 +8,7 @@ import Insights from './components/Insights';
 import SpendingBreakdown from './components/SpendingBreakdown';
 import Simulations from './components/Simulations';
 import Advisor from './components/Advisor';
+import Pension from './components/Pension';
 import trendsData from './data/trends.json';
 import transactionsData from './data/transactions.json';
 import spendingData from './data/spending.json';
@@ -143,6 +144,7 @@ function App() {
             case 'insights': return <Insights selectedMonths={selectedMonths} />;
             case 'simulations': return <Simulations selectedMonths={selectedMonths} />;
             case 'advisor': return <Advisor />;
+            case 'pension': return <Pension />;
             default: return <Overview selectedMonths={selectedMonths} availableMonths={availableMonths} />;
         }
     };
@@ -155,6 +157,7 @@ function App() {
         insights: 'Insights & Progress',
         simulations: 'Simulations',
         advisor: 'Financial Advisor',
+        pension: 'Savings & Pension',
     };
 
     return (
@@ -176,6 +179,7 @@ function App() {
                         { id: 'transactions', icon: <ArrowRightLeft size={20} />, label: 'Transactions' },
                         { id: 'insights', icon: <Lightbulb size={20} />, label: 'Insights' },
                         { id: 'simulations', icon: <SlidersHorizontal size={20} />, label: 'Simulations' },
+                        { id: 'pension', icon: <PiggyBank size={20} />, label: 'Pension' },
                         { id: 'advisor', icon: <BriefcaseBusiness size={20} />, label: 'Advisor' },
                     ].map(({ id, icon, label }) => (
                         <button

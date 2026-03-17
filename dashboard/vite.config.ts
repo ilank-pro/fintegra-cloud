@@ -304,6 +304,81 @@ function refreshDataPlugin() {
   }
 }
 
+function pensionImportPlugin() {
+  return {
+    name: 'pension-import',
+    configureServer(server) {
+      server.middlewares.use('/api/import-pension', (_req, res) => {
+        try {
+          const xlsPath = join(__dirname, '..', '..', 'Downloads', 'התמונה המלאה.xls')
+          const fs = require('fs')
+          if (!fs.existsSync(xlsPath)) {
+            res.writeHead(404, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ ok: false, error: 'XLS file not found at ' + xlsPath }))
+            return
+          }
+          // Use python to parse XLS (xlrd already installed)
+          const result = execSync(`/Applications/Xcode.app/Contents/Developer/usr/bin/python3 << 'PYEOF'
+import xlrd, json
+wb = xlrd.open_workbook("${xlsPath}")
+sheet = wb.sheet_by_name("פרטי המוצרים שלי")
+deps_sheet = wb.sheet_by_name("מעקב הפקדות")
+accounts = []
+for r in range(1, sheet.nrows):
+    name = sheet.cell_value(r, 0)
+    company = sheet.cell_value(r, 1)
+    policy = str(sheet.cell_value(r, 2))
+    status = sheet.cell_value(r, 3)
+    savings = sheet.cell_value(r, 4) or 0
+    expected = sheet.cell_value(r, 8) or 0
+    pension_mo = sheet.cell_value(r, 9) or 0
+    mgmt_fee = sheet.cell_value(r, 12) or 0
+    ytd_return = sheet.cell_value(r, 13) or 0
+    emp_dep = sheet.cell_value(r, 14) or 0
+    empr_dep = sheet.cell_value(r, 15) or 0
+    if savings > 0 or expected > 0:
+        accounts.append({
+            "name": name, "company": company, "policy": policy,
+            "status": "active" if status == "פעיל" else "inactive",
+            "currentBalance": savings, "annualInterest": ytd_return,
+            "monthlyDeposit": emp_dep + empr_dep, "monthlyPension": pension_mo,
+            "managementFee": mgmt_fee,
+        })
+# Add Harel pension (not in products sheet with balance)
+harel_exists = any(a["policy"] == "317751602" for a in accounts)
+if not harel_exists:
+    accounts.append({
+        "name": "פנסיה מקיפה (מעסיק)", "company": "הראל ביטוח", "policy": "317751602",
+        "status": "active", "currentBalance": 1717000, "annualInterest": 4.0,
+        "monthlyDeposit": 11033, "monthlyPension": 0, "managementFee": 0.5,
+    })
+print(json.dumps(accounts, ensure_ascii=False))
+PYEOF`, { encoding: 'utf-8', timeout: 10000 })
+
+          const accounts = JSON.parse(result)
+          // Add IDs and English names
+          const withIds = accounts.map((a: any, i: number) => ({
+            id: a.policy.replace(/[^a-zA-Z0-9]/g, '-') + '-' + i,
+            ...a,
+            nameEn: a.name,
+            type: a.name.includes('השתלמות') ? 'hishtalmut' : a.name.includes('פנסיה') ? 'pension' : a.name.includes('גמל') ? 'gemel' : 'insurance_savings',
+            depositStopAge: 63,
+          }))
+
+          const outPath = join(__dirname, 'src', 'data', 'pension-accounts.json')
+          fs.writeFileSync(outPath, JSON.stringify(withIds, null, 2))
+
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, accounts: withIds }))
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ ok: false, error: (err as Error).message?.slice(0, 200) }))
+        }
+      })
+    },
+  }
+}
+
 function advisorPlugin() {
   return {
     name: 'advisor-api',
@@ -402,5 +477,5 @@ ${JSON.stringify(dataSummary, null, 2)}`
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), refreshDataPlugin(), advisorPlugin()],
+  plugins: [react(), refreshDataPlugin(), advisorPlugin(), pensionImportPlugin()],
 })
