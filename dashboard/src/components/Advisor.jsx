@@ -322,7 +322,7 @@ const severityConfig = {
 //  Component
 // ═══════════════════════════════════════════════════
 
-export default function Advisor({ aiReport, setAiReport }) {
+export default function Advisor({ aiReport, setAiReport, chatMessages, setChatMessages }) {
     const trendsData = useTrends() || [];
     const balanceData = useBalance() || {};
     const spendingData = useSpending() || [];
@@ -338,7 +338,6 @@ export default function Advisor({ aiReport, setAiReport }) {
     const [apiKey, setApiKey] = useState(() => localStorage.getItem('fintegra-anthropic-key') || '');
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError, setAiError] = useState(null);
-    const [chatMessages, setChatMessages] = useState([]);
     const [chatInput, setChatInput] = useState('');
     const [chatLoading, setChatLoading] = useState(false);
     const chatEndRef = useRef(null);

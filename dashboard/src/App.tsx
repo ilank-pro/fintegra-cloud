@@ -171,6 +171,7 @@ function App() {
     const [drillCategory, setDrillCategory] = useState<string | null>(null);
     const [monthBarPinned, setMonthBarPinned] = useState(false);
     const [aiReport, setAiReport] = useState<any>(null);
+    const [chatMessages, setChatMessages] = useState<any[]>([]);
 
     const toggleMonth = useCallback((m: string, e: React.MouseEvent) => {
         if (e.metaKey || e.ctrlKey) {
@@ -233,7 +234,7 @@ function App() {
             case 'transactions': return <Transactions selectedMonths={selectedMonths} drillCategory={drillCategory} onDrillClear={() => setDrillCategory(null)} />;
             case 'insights': return <Insights selectedMonths={selectedMonths} />;
             case 'simulations': return <Simulations selectedMonths={selectedMonths} />;
-            case 'advisor': return <Advisor aiReport={aiReport} setAiReport={setAiReport} />;
+            case 'advisor': return <Advisor aiReport={aiReport} setAiReport={setAiReport} chatMessages={chatMessages} setChatMessages={setChatMessages} />;
             case 'pension': return <Pension allAccounts={localPensionAccounts} setAllAccounts={setLocalPensionAccounts} retirementAges={retirementAges} setRetirementAges={setRetirementAges} />;
             default: return <Overview selectedMonths={selectedMonths} availableMonths={availableMonths} pensionOverrides={pensionOverrides} />;
         }
