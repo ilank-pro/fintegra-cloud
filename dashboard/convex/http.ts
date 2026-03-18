@@ -182,10 +182,7 @@ http.route({
       const { apiKey, findings, dataSummary } = await request.json();
 
       if (!apiKey) {
-        return new Response(
-          JSON.stringify({ ok: false, error: "API key required" }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
-        );
+        return corsResponse({ ok: false, error: "API key required" }, 400);
       }
 
       const systemPrompt = `You are a professional Israeli financial advisor. Analyze the client's financial data and return a structured JSON report. Be direct, use specific numbers (ILS ₪), and provide actionable recommendations.
@@ -257,24 +254,15 @@ ${JSON.stringify(dataSummary, null, 2)}`;
 
       if (!response.ok) {
         const errText = await response.text();
-        return new Response(
-          JSON.stringify({ ok: false, error: `API error: ${response.status} ${errText.slice(0, 200)}` }),
-          { status: response.status, headers: { "Content-Type": "application/json" } }
-        );
+        return corsResponse({ ok: false, error: `API error: ${response.status} ${errText.slice(0, 200)}` }, response.status);
       }
 
       const result = (await response.json()) as any;
       const report = result.content?.[0]?.text || "No report generated";
 
-      return new Response(
-        JSON.stringify({ ok: true, report }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
+      return corsResponse({ ok: true, report });
     } catch (err: any) {
-      return new Response(
-        JSON.stringify({ ok: false, error: err.message || "Unknown error" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
+      return corsResponse({ ok: false, error: err.message || "Unknown error" }, 500);
     }
   }),
 });
