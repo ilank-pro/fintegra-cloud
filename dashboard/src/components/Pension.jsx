@@ -117,6 +117,8 @@ const OWNERS = {
     spouse: { label: 'Spouse', age: 51, defaultRetirement: 65 },
 };
 
+const getId = (a) => a._id || a.id;
+
 export default function Pension({ allAccounts, setAllAccounts, retirementAges, setRetirementAges }) {
     const [selectedOwners, setSelectedOwners] = useState(new Set(['ilan']));
     const [monthlySpending, setMonthlySpending] = useState(40000);
@@ -306,7 +308,7 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
 
     // Update account field
     const updateAccount = (id, field, value) => {
-        setAllAccounts(prev => prev.map(a => a.id === id ? { ...a, [field]: Number(value) || 0 } : a));
+        setAllAccounts(prev => prev.map(a => getId(a) === id ? { ...a, [field]: Number(value) || 0 } : a));
     };
 
     // Import from XLS via file upload
@@ -342,7 +344,7 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
 
     // Delete account
     const deleteAccount = (id) => {
-        setAllAccounts(prev => prev.filter(a => a.id !== id));
+        setAllAccounts(prev => prev.filter(a => getId(a) !== id));
     };
 
     // Save snapshot to persistent history
@@ -634,7 +636,7 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
                         </thead>
                         <tbody>
                             {sortedProjections.map(acc => (
-                                <tr key={acc.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }} className="hover-row">
+                                <tr key={getId(acc)} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }} className="hover-row">
                                     <td style={{ padding: '10px 8px' }}>
                                         <div style={{ fontWeight: 600, fontSize: '12px' }}>{acc.nameEn}</div>
                                         <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{acc.name}</div>
@@ -643,7 +645,7 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 600 }}>{formatFull(acc.currentBalance)}</td>
                                     <td style={{ padding: '10px 8px', textAlign: 'center' }}>
                                         <input type="number" step="0.1" value={acc.annualInterest}
-                                            onChange={e => updateAccount(acc.id, 'annualInterest', e.target.value)}
+                                            onChange={e => updateAccount(getId(acc), 'annualInterest', e.target.value)}
                                             style={{
                                                 width: '60px', padding: '4px 6px', borderRadius: '6px', fontSize: '12px',
                                                 border: '1px solid var(--border-light)', background: 'rgba(255,255,255,0.04)',
@@ -652,7 +654,7 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'center' }}>
                                         <input type="number" step="100" value={acc.monthlyDeposit}
-                                            onChange={e => updateAccount(acc.id, 'monthlyDeposit', e.target.value)}
+                                            onChange={e => updateAccount(getId(acc), 'monthlyDeposit', e.target.value)}
                                             style={{
                                                 width: '80px', padding: '4px 6px', borderRadius: '6px', fontSize: '12px',
                                                 border: '1px solid var(--border-light)', background: 'rgba(255,255,255,0.04)',
@@ -661,7 +663,7 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'center' }}>
                                         <input type="number" min={currentAge} max={75} value={acc.depositStopAge}
-                                            onChange={e => updateAccount(acc.id, 'depositStopAge', e.target.value)}
+                                            onChange={e => updateAccount(getId(acc), 'depositStopAge', e.target.value)}
                                             style={{
                                                 width: '50px', padding: '4px 6px', borderRadius: '6px', fontSize: '12px',
                                                 border: '1px solid var(--border-light)', background: 'rgba(255,255,255,0.04)',
@@ -675,7 +677,7 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
                                         {acc.monthlyPension > 0 ? formatFull(acc.monthlyPension) : '—'}
                                     </td>
                                     <td style={{ padding: '10px 4px', textAlign: 'center' }}>
-                                        <button onClick={(e) => { e.stopPropagation(); deleteAccount(acc.id); }} title="Remove account"
+                                        <button onClick={(e) => { e.stopPropagation(); deleteAccount(getId(acc)); }} title="Remove account"
                                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', opacity: 0.5 }}>
                                             <Trash2 size={13} />
                                         </button>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import './index.css';
 import { LayoutDashboard, Wallet, ArrowRightLeft, Lightbulb, BarChart2, PieChart, SlidersHorizontal, CalendarDays, RefreshCw, Sun, Moon, BriefcaseBusiness, Pin, PinOff, PiggyBank } from 'lucide-react';
 import Overview from './components/Overview';
@@ -78,6 +78,17 @@ function App() {
 
     // Convex queries
     const pensionAccounts = usePensionAccounts();
+    const [localPensionAccounts, setLocalPensionAccounts] = useState<any[]>([]);
+    const pensionSyncRef = useRef<string>('');
+    useEffect(() => {
+        if (pensionAccounts) {
+            const json = JSON.stringify(pensionAccounts);
+            if (json !== pensionSyncRef.current) {
+                pensionSyncRef.current = json;
+                setLocalPensionAccounts(pensionAccounts);
+            }
+        }
+    }, [pensionAccounts]);
     const healthScoreData = useHealthScore();
     const trendsData = useTrends();
     const transactionsData = useTransactions();
@@ -101,16 +112,16 @@ function App() {
     const [retirementAges, setRetirementAges] = useState<Record<string, number>>({ ilan: 63, spouse: 65 });
 
     const pensionOverrides = useMemo(() => {
-        if (!pensionAccounts || !healthScoreData) return null;
+        if (!localPensionAccounts.length || !healthScoreData) return null;
 
         const OWNER_AGES: Record<string, number> = { ilan: 53, spouse: 51 };
         const clamp = (v: number) => Math.max(0, Math.min(100, v));
 
-        const totalSavings = pensionAccounts.reduce((s: number, a: any) => s + (a.currentBalance || 0), 0);
-        const monthlyDeposits = pensionAccounts.reduce((s: number, a: any) => s + (a.monthlyDeposit || 0), 0);
+        const totalSavings = localPensionAccounts.reduce((s: number, a: any) => s + (a.currentBalance || 0), 0);
+        const monthlyDeposits = localPensionAccounts.reduce((s: number, a: any) => s + (a.monthlyDeposit || 0), 0);
 
         let projectedPension = 0;
-        for (const a of pensionAccounts) {
+        for (const a of localPensionAccounts) {
             const ownerAge = OWNER_AGES[a.owner || 'ilan'] || 53;
             const ownerRet = retirementAges[a.owner || 'ilan'] || 63;
             const growthYears = Math.max(0, Math.min(a.depositStopAge || ownerRet, ownerRet) - ownerAge);
@@ -128,8 +139,8 @@ function App() {
         const targetMonthly = (healthScoreData as any)?.retirement?.targetMonthly || 43232;
         const retirementReadiness = clamp(Math.round(targetMonthly > 0 ? (sustainableMonthly / targetMonthly) * 100 : 0));
 
-        const accessible = pensionAccounts.filter((a: any) => a.type === 'hishtalmut').reduce((s: number, a: any) => s + (a.currentBalance || 0), 0);
-        const longTerm = pensionAccounts.filter((a: any) => a.type !== 'hishtalmut').reduce((s: number, a: any) => s + (a.currentBalance || 0), 0);
+        const accessible = localPensionAccounts.filter((a: any) => a.type === 'hishtalmut').reduce((s: number, a: any) => s + (a.currentBalance || 0), 0);
+        const longTerm = localPensionAccounts.filter((a: any) => a.type !== 'hishtalmut').reduce((s: number, a: any) => s + (a.currentBalance || 0), 0);
         const liquid = (healthScoreData as any)?.assetTiers?.liquid || 0;
         const totalNetWorth = liquid + accessible + longTerm;
 
@@ -153,7 +164,7 @@ function App() {
             retirement: { projectedPension, sustainableMonthly, targetMonthly, totalSavings, monthlyDeposits },
             composite, grade, level, levelTitle, xpInLevel,
         };
-    }, [pensionAccounts, retirementAges, healthScoreData]);
+    }, [localPensionAccounts, retirementAges, healthScoreData]);
 
     const [refreshing, setRefreshing] = useState(false);
     const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
@@ -223,7 +234,7 @@ function App() {
             case 'insights': return <Insights selectedMonths={selectedMonths} />;
             case 'simulations': return <Simulations selectedMonths={selectedMonths} />;
             case 'advisor': return <Advisor aiReport={aiReport} setAiReport={setAiReport} />;
-            case 'pension': return <Pension allAccounts={pensionAccounts} setAllAccounts={() => {}} retirementAges={retirementAges} setRetirementAges={setRetirementAges} />;
+            case 'pension': return <Pension allAccounts={localPensionAccounts} setAllAccounts={setLocalPensionAccounts} retirementAges={retirementAges} setRetirementAges={setRetirementAges} />;
             default: return <Overview selectedMonths={selectedMonths} availableMonths={availableMonths} pensionOverrides={pensionOverrides} />;
         }
     };
