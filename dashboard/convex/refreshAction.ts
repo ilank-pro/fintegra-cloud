@@ -18,10 +18,10 @@ async function riseupFetch(path: string, cookies: string, commitHash: string) {
 }
 
 const clamp = (v: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
+const resolveCategory = (t: any) => t.trackingCategory?.name || t.expense;
 
 function processBudget(budget: any) {
   const txns = budget.envelopes.flatMap((e: any) => e.actuals || []);
-  const resolveCategory = (t: any) => t.trackingCategory?.name || t.expense;
 
   // Transactions
   const transactions = txns.map((t: any) => ({
@@ -359,12 +359,13 @@ export const refreshData = action({
     // Process budget (transactions, spending, trajectory, etc.)
     let processed: any = null;
     let budgetTrends: any[] = [];
+    let historicalTransactions: any[] = [];
     if (budgetData) {
       processed = processBudget(budgetData);
 
-      // Fetch historical budgets for trends
+      // Fetch historical budgets for trends + transactions
       try {
-        const prevBudgets = await riseupFetch(`/api/budget/${budgetData.budgetDate}/4`, cookies, commitHash);
+        const prevBudgets = await riseupFetch(`/api/budget/${budgetData.budgetDate}/6`, cookies, commitHash);
         for (const b of prevBudgets) {
           const allTxns = b.envelopes.flatMap((e: any) => e.actuals || []);
           // Category overrides from previous months
@@ -378,6 +379,17 @@ export const refreshData = action({
           const inc = allTxns.filter((t: any) => t.isIncome).reduce((s: number, t: any) => s + (t.incomeAmount || t.billingAmount || 0), 0);
           const exp = allTxns.filter((t: any) => !t.isIncome).reduce((s: number, t: any) => s + Math.abs(t.billingAmount || 0), 0);
           budgetTrends.push({ month: b.budgetDate, income: inc, expenses: exp, net: inc - exp });
+          // Collect individual transactions
+          for (const t of allTxns) {
+            historicalTransactions.push({
+              date: t.transactionDate || t.billingDate || t.originalDate,
+              amount: t.isIncome ? (t.incomeAmount || t.billingAmount || 0) : Math.abs(t.billingAmount || 0),
+              businessName: t.businessName || "",
+              category: t.isIncome ? (resolveCategory(t) || "income") : (resolveCategory(t) || ""),
+              source: t.source || undefined,
+              isIncome: !!t.isIncome || undefined,
+            });
+          }
         }
       } catch (e: any) {
         errors.push(`budget-history: ${e.message?.slice(0, 100)}`);
@@ -402,7 +414,7 @@ export const refreshData = action({
     }
 
     if (processed) {
-      await ctx.runMutation(api.mutations.replaceTransactions, { items: processed.transactions });
+      await ctx.runMutation(api.mutations.replaceTransactions, { items: [...historicalTransactions, ...processed.transactions] });
       await ctx.runMutation(api.mutations.replaceIncome, { items: processed.income });
       await ctx.runMutation(api.mutations.replaceSpending, { items: processed.spending });
       await ctx.runMutation(api.mutations.replaceTrajectory, { data: processed.trajectory });
