@@ -1,6 +1,23 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 
+// --- Config mutations ---
+
+export const setConfig = mutation({
+  args: { key: v.string(), value: v.string() },
+  handler: async (ctx, { key, value }) => {
+    const existing = await ctx.db
+      .query("config")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, { value });
+    } else {
+      await ctx.db.insert("config", { key, value });
+    }
+  },
+});
+
 // --- Pension account mutations ---
 
 export const updatePensionAccount = mutation({

@@ -186,21 +186,19 @@ function App() {
         setRefreshing(true);
         setRefreshMsg(null);
         try {
-            const res = await fetch('/api/refresh-data');
+            const siteUrl = import.meta.env.VITE_CONVEX_SITE_URL || import.meta.env.VITE_CONVEX_URL?.replace('.cloud', '.site') || '';
+            const res = await fetch(`${siteUrl}/refresh`, { method: 'POST' });
             const data = await res.json();
             if (data.ok) {
-                setRefreshMsg(data.errors?.length ? `Updated (${data.errors.length} warnings) — reloading...` : 'Data updated — reloading...');
-                setTimeout(() => window.location.reload(), 800);
+                setRefreshMsg(data.errors?.length ? `Refreshed (${data.errors.length} warnings)` : 'Data refreshed!');
             } else {
-                const errMsg = data.error?.includes('CLI not built') ? 'CLI not built — run setup first' : 'Refresh failed — check login session';
-                setRefreshMsg(errMsg);
-                setTimeout(() => setRefreshMsg(null), 5000);
+                setRefreshMsg(data.error || 'Refresh failed');
             }
         } catch {
             setRefreshMsg('Refresh failed — server unreachable');
-            setTimeout(() => setRefreshMsg(null), 4000);
         } finally {
             setRefreshing(false);
+            setTimeout(() => setRefreshMsg(null), 5000);
         }
     };
 
@@ -353,19 +351,17 @@ function App() {
 
                         <div style={{ width: '1px', height: '20px', background: 'var(--border-light)', margin: '0 2px' }} />
 
-                        {import.meta.env.DEV && (
-                            <button onClick={handleRefresh} disabled={refreshing} style={{
-                                padding: '4px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
-                                cursor: refreshing ? 'wait' : 'pointer', fontFamily: 'inherit',
-                                border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.08)',
-                                color: 'var(--accent-success)',
-                                display: 'flex', alignItems: 'center', gap: '5px',
-                                opacity: refreshing ? 0.7 : 1, transition: 'opacity 0.2s',
-                            }}>
-                                <RefreshCw size={11} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
-                                {refreshing ? 'Refreshing...' : 'Refresh'}
-                            </button>
-                        )}
+                        <button onClick={handleRefresh} disabled={refreshing} style={{
+                            padding: '4px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                            cursor: refreshing ? 'wait' : 'pointer', fontFamily: 'inherit',
+                            border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.08)',
+                            color: 'var(--accent-success)',
+                            display: 'flex', alignItems: 'center', gap: '5px',
+                            opacity: refreshing ? 0.7 : 1, transition: 'opacity 0.2s',
+                        }}>
+                            <RefreshCw size={11} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+                            {refreshing ? 'Refreshing...' : 'Refresh'}
+                        </button>
 
                         {refreshMsg && (
                             <span style={{ fontSize: '11px', fontWeight: 600, color: refreshMsg.includes('failed') ? 'var(--accent-danger)' : 'var(--accent-success)' }}>

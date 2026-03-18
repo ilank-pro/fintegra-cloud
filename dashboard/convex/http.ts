@@ -5,6 +5,30 @@ import * as XLSX from "xlsx";
 
 const http = httpRouter();
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+function corsResponse(body: any, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", ...corsHeaders },
+  });
+}
+
+// CORS preflight for all routes
+for (const path of ["/import-pension", "/advisor", "/refresh"]) {
+  http.route({
+    path,
+    method: "OPTIONS",
+    handler: httpAction(async () => {
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }),
+  });
+}
+
 // --- Pension XLS Import ---
 http.route({
   path: "/import-pension",
@@ -251,6 +275,20 @@ ${JSON.stringify(dataSummary, null, 2)}`;
         JSON.stringify({ ok: false, error: err.message || "Unknown error" }),
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
+    }
+  }),
+});
+
+// --- Data Refresh ---
+http.route({
+  path: "/refresh",
+  method: "POST",
+  handler: httpAction(async (ctx) => {
+    try {
+      const result = await ctx.runAction(api.refreshAction.refreshData);
+      return corsResponse(result, result.ok ? 200 : 500);
+    } catch (err: any) {
+      return corsResponse({ ok: false, error: err.message || "Refresh failed" }, 500);
     }
   }),
 });

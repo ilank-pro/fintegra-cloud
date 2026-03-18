@@ -1,4 +1,17 @@
 import { query } from "./_generated/server";
+import { v } from "convex/values";
+
+// Config
+export const getConfig = query({
+  args: { key: v.string() },
+  handler: async (ctx, { key }) => {
+    const doc = await ctx.db
+      .query("config")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .first();
+    return doc?.value ?? null;
+  },
+});
 
 // Singleton queries
 export const getBalance = query({

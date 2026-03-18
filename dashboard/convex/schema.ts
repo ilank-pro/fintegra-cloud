@@ -89,4 +89,10 @@ export default defineSchema({
     report: v.any(),
     createdAt: v.number(),
   }),
+
+  // System config (session credentials, etc.)
+  config: defineTable({
+    key: v.string(),
+    value: v.string(),
+  }).index("by_key", ["key"]),
 });
