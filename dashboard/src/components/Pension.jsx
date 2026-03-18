@@ -309,6 +309,9 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
     // Update account field
     const updateAccount = (id, field, value) => {
         setAllAccounts(prev => prev.map(a => getId(a) === id ? { ...a, [field]: Number(value) || 0 } : a));
+        if (typeof id === 'string' && !id.startsWith('manual-')) {
+            updateAccountMutation({ id, fields: { [field]: Number(value) || 0 } });
+        }
     };
 
     // Import from XLS via file upload
@@ -337,7 +340,9 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
     const addManualAccount = () => {
         if (!newAccount.name) return;
         const id = 'manual-' + Date.now();
-        setAllAccounts(prev => [...prev, { ...newAccount, id, nameEn: newAccount.name, type: 'manual', status: 'active', policy: '', managementFee: 0, owner: activeOwner }]);
+        const account = { ...newAccount, id, nameEn: newAccount.name, type: 'manual', status: 'active', policy: '', managementFee: 0, owner: activeOwner };
+        setAllAccounts(prev => [...prev, account]);
+        addAccountMutation({ account });
         setNewAccount({ name: '', company: '', currentBalance: 0, annualInterest: 4, monthlyDeposit: 0, depositStopAge: retirementAge, monthlyPension: 0 });
         setShowAddRow(false);
     };
@@ -345,11 +350,17 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
     // Delete account
     const deleteAccount = (id) => {
         setAllAccounts(prev => prev.filter(a => getId(a) !== id));
+        if (typeof id === 'string' && !id.startsWith('manual-')) {
+            deleteAccountMutation({ id });
+        }
     };
 
     // Save snapshot to persistent history
     const [saving, setSaving] = useState(false);
     const savePensionSnapshotMutation = useMutation(api.mutations.savePensionSnapshot);
+    const addAccountMutation = useMutation(api.mutations.addPensionAccount);
+    const updateAccountMutation = useMutation(api.mutations.updatePensionAccount);
+    const deleteAccountMutation = useMutation(api.mutations.deletePensionAccount);
     const saveSnapshot = async () => {
         setSaving(true);
         try {
