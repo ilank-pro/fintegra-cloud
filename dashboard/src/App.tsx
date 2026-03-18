@@ -101,13 +101,13 @@ function App() {
         for (const a of pensionAccounts) {
             const ownerAge = OWNER_AGES[a.owner || 'ilan'] || 53;
             const ownerRet = retirementAges[a.owner || 'ilan'] || 63;
-            const yrs = Math.max(0, ownerRet - ownerAge);
+            const growthYears = Math.max(0, Math.min(a.depositStopAge || ownerRet, ownerRet) - ownerAge);
             const monthlyRate = (a.annualInterest || 4) / 100 / 12;
-            const depositMonths = Math.max(0, Math.min(a.depositStopAge || ownerRet, ownerRet) - ownerAge) * 12;
+            const totalMonths = growthYears * 12;
             let bal = a.currentBalance || 0;
-            for (let m = 0; m < yrs * 12; m++) {
+            for (let m = 0; m < totalMonths; m++) {
                 bal *= (1 + monthlyRate);
-                if (m < depositMonths) bal += (a.monthlyDeposit || 0);
+                bal += (a.monthlyDeposit || 0);
             }
             projectedPension += bal;
         }

@@ -439,12 +439,15 @@ PYEOF`, { encoding: 'utf-8', timeout: 10000 })
           const historyPath = join(dataDir2, 'pension-history.json')
           let history: any[] = []
           try { history = JSON.parse(fs.readFileSync(historyPath, 'utf-8')) } catch {}
-          const totalSavings = withIds.reduce((s: number, a: any) => s + (a.currentBalance || 0), 0)
-          const entry = {
-            date: dataDate,
-            totalSavings,
-            accounts: withIds.map((a: any) => ({ name: a.nameEn || a.name, balance: a.currentBalance })),
+          // Compute per-owner totals from all accounts (both owners)
+          const ownerTotals: Record<string, number> = {}
+          let totalSavings = 0
+          for (const a of allAccounts) {
+            const o = a.owner || 'ilan'
+            ownerTotals[o] = (ownerTotals[o] || 0) + (a.currentBalance || 0)
+            totalSavings += (a.currentBalance || 0)
           }
+          const entry = { date: dataDate, ownerTotals, totalSavings }
           const existingIdx = history.findIndex((h: any) => h.date === dataDate)
           if (existingIdx >= 0) history[existingIdx] = entry
           else history.push(entry)
@@ -578,7 +581,62 @@ ${JSON.stringify(dataSummary, null, 2)}`
   }
 }
 
+function pensionSnapshotPlugin() {
+  return {
+    name: 'pension-snapshot',
+    configureServer(server) {
+      server.middlewares.use('/api/save-pension-snapshot', (req, res) => {
+        if (req.method !== 'POST') {
+          res.writeHead(405, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ ok: false, error: 'POST only' }))
+          return
+        }
+        let body = ''
+        req.on('data', (chunk: Buffer) => { body += chunk.toString() })
+        req.on('end', () => {
+          try {
+            const fs = require('fs')
+            const { accounts } = JSON.parse(body)
+            if (!Array.isArray(accounts)) {
+              res.writeHead(400, { 'Content-Type': 'application/json' })
+              res.end(JSON.stringify({ ok: false, error: 'accounts array required' }))
+              return
+            }
+
+            const ownerTotals: Record<string, number> = {}
+            let totalSavings = 0
+            for (const a of accounts) {
+              const owner = a.owner || 'ilan'
+              ownerTotals[owner] = (ownerTotals[owner] || 0) + (a.currentBalance || 0)
+              totalSavings += (a.currentBalance || 0)
+            }
+
+            const today = new Date().toISOString().slice(0, 10)
+            const historyPath = join(__dirname, 'src', 'data', 'pension-history.json')
+            let history: any[] = []
+            try { history = JSON.parse(fs.readFileSync(historyPath, 'utf-8')) } catch {}
+
+            const entry = { date: today, ownerTotals, totalSavings }
+            const existingIdx = history.findIndex((h: any) => h.date === today)
+            if (existingIdx >= 0) history[existingIdx] = entry
+            else history.push(entry)
+            history.sort((a: any, b: any) => a.date.localeCompare(b.date))
+
+            fs.writeFileSync(historyPath, JSON.stringify(history, null, 2))
+
+            res.writeHead(200, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ ok: true, history }))
+          } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ ok: false, error: (err as Error).message?.slice(0, 200) }))
+          }
+        })
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), refreshDataPlugin(), advisorPlugin(), pensionImportPlugin()],
+  plugins: [react(), refreshDataPlugin(), advisorPlugin(), pensionImportPlugin(), pensionSnapshotPlugin()],
 })

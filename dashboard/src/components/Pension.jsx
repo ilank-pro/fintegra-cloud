@@ -4,7 +4,7 @@ import {
     Title, Tooltip, Legend, Filler,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { PiggyBank, Upload, TrendingUp, Clock, Shield, Plus, Trash2 } from 'lucide-react';
+import { PiggyBank, Upload, TrendingUp, Clock, Shield, Plus, Trash2, Save } from 'lucide-react';
 import initialHistory from '../data/pension-history.json';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
@@ -25,17 +25,15 @@ const formatFull = (val) => {
 
 // Project a single account forward (with custom current age)
 function projectAccountWithAge(account, retirementAge, currentAge = DEFAULT_AGE) {
-    const yearsToRetire = Math.max(0, retirementAge - currentAge);
-    const depositYears = Math.max(0, Math.min(account.depositStopAge, retirementAge) - currentAge);
+    const growthYears = Math.max(0, Math.min(account.depositStopAge, retirementAge) - currentAge);
     const monthlyRate = (account.annualInterest / 100) / 12;
-    const depositMonths = depositYears * 12;
-    const totalMonths = yearsToRetire * 12;
+    const totalMonths = growthYears * 12;
 
-    // Growth with deposits
+    // Growth with deposits — both stop at depositStopAge
     let balance = account.currentBalance;
     for (let m = 0; m < totalMonths; m++) {
         balance *= (1 + monthlyRate);
-        if (m < depositMonths) balance += account.monthlyDeposit;
+        balance += account.monthlyDeposit;
     }
     return Math.round(balance);
 }
@@ -94,16 +92,14 @@ function buildTrajectory(accounts, retirementAge, monthlySpending, currentAge = 
 }
 
 function projectAccountToAge(account, targetAge, currentAge = DEFAULT_AGE) {
-    const years = Math.max(0, targetAge - currentAge);
-    const depositYears = Math.max(0, Math.min(account.depositStopAge, targetAge) - currentAge);
+    const growthYears = Math.max(0, Math.min(account.depositStopAge, targetAge) - currentAge);
     const monthlyRate = (account.annualInterest / 100) / 12;
-    const totalMonths = years * 12;
-    const depositMonths = depositYears * 12;
+    const totalMonths = growthYears * 12;
 
     let balance = account.currentBalance;
     for (let m = 0; m < totalMonths; m++) {
         balance *= (1 + monthlyRate);
-        if (m < depositMonths) balance += account.monthlyDeposit;
+        balance += account.monthlyDeposit;
     }
     return balance;
 }
@@ -339,21 +335,77 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
         setAllAccounts(prev => prev.filter(a => a.id !== id));
     };
 
-    // History chart data
+    // Save snapshot to persistent history
+    const [saving, setSaving] = useState(false);
+    const saveSnapshot = async () => {
+        setSaving(true);
+        try {
+            const res = await fetch('/api/save-pension-snapshot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accounts: allAccounts }),
+            });
+            const data = await res.json();
+            if (data.ok && data.history) setHistory(data.history);
+        } catch {} finally {
+            setTimeout(() => setSaving(false), 600);
+        }
+    };
+
+    // History chart data — per-owner based on selected tabs
     const historyChartData = useMemo(() => {
         if (history.length === 0) return null;
+        const labels = history.map(h => h.date);
+
+        if (isCombined) {
+            // Combined view: separate lines for each owner + dotted total
+            return {
+                labels,
+                datasets: [
+                    {
+                        label: 'Ilan',
+                        data: history.map(h => h.ownerTotals?.ilan || 0),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59,130,246,0.06)',
+                        pointStyle: 'star', pointRadius: 8, pointBackgroundColor: '#3b82f6',
+                        borderWidth: 2, tension: 0.3,
+                    },
+                    {
+                        label: 'Spouse',
+                        data: history.map(h => h.ownerTotals?.spouse || 0),
+                        borderColor: '#ec4899',
+                        backgroundColor: 'rgba(236,72,153,0.06)',
+                        pointStyle: 'circle', pointRadius: 6, pointBackgroundColor: '#ec4899',
+                        borderWidth: 2, tension: 0.3,
+                    },
+                    {
+                        label: 'Combined',
+                        data: history.map(h => h.totalSavings || 0),
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139,92,246,0.05)',
+                        borderDash: [6, 4], pointRadius: 0,
+                        borderWidth: 2, tension: 0.3, fill: true,
+                    },
+                ],
+            };
+        }
+
+        // Single owner view
+        const owner = [...selectedOwners][0] || 'ilan';
+        const color = owner === 'spouse' ? '#ec4899' : '#3b82f6';
+        const style = owner === 'spouse' ? 'circle' : 'star';
         return {
-            labels: history.map(h => h.date),
+            labels,
             datasets: [{
-                label: 'Total Pension Savings',
-                data: history.map(h => h.totalSavings),
-                borderColor: '#8b5cf6',
-                backgroundColor: 'rgba(139,92,246,0.08)',
+                label: OWNERS[owner]?.label || owner,
+                data: history.map(h => h.ownerTotals?.[owner] || (owner === 'ilan' ? h.totalSavings : 0)),
+                borderColor: color,
+                backgroundColor: color.replace(')', ',0.08)').replace('rgb', 'rgba'),
                 fill: true, tension: 0.3, borderWidth: 2,
-                pointRadius: 5, pointBackgroundColor: '#8b5cf6',
+                pointStyle: style, pointRadius: owner === 'spouse' ? 6 : 8, pointBackgroundColor: color,
             }],
         };
-    }, [history]);
+    }, [history, selectedOwners, isCombined]);
 
     const suffColor = yearsLasting >= 25 ? 'var(--accent-success)' : yearsLasting >= 15 ? 'var(--accent-warning)' : 'var(--accent-danger)';
     const suffPct = Math.min(100, (yearsLasting / 35) * 100);
@@ -518,8 +570,12 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
                         <Line data={historyChartData} options={{
                             responsive: true, maintainAspectRatio: false,
                             plugins: {
-                                legend: { display: false },
-                                tooltip: { ...tooltipDefaults, callbacks: { label: (ctx) => ` ${formatFull(ctx.raw)}` } },
+                                legend: {
+                                    display: isCombined,
+                                    position: 'top',
+                                    labels: { color: '#94a3b8', usePointStyle: true, font: { family: 'Plus Jakarta Sans', size: 11 } },
+                                },
+                                tooltip: { ...tooltipDefaults, callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${formatFull(ctx.raw)}` } },
                             },
                             scales: {
                                 x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } },
@@ -528,7 +584,7 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
                         }} />
                     </div>
                     <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '8px', textAlign: 'center' }}>
-                        {history.length} snapshot{history.length !== 1 ? 's' : ''} — import XLS periodically to track growth
+                        {history.length} snapshot{history.length !== 1 ? 's' : ''} — save or import to track growth over time
                     </div>
                 </div>
             )}
@@ -660,16 +716,27 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
                         </tfoot>
                     </table>
                 </div>
-                {!showAddRow && (
-                    <button onClick={() => setShowAddRow(true)} style={{
-                        marginTop: '12px', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
-                        cursor: 'pointer', fontFamily: 'inherit',
-                        border: '1px dashed var(--border-light)', background: 'rgba(255,255,255,0.02)',
-                        color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px',
+                <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                    {!showAddRow && (
+                        <button onClick={() => setShowAddRow(true)} style={{
+                            padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                            cursor: 'pointer', fontFamily: 'inherit',
+                            border: '1px dashed var(--border-light)', background: 'rgba(255,255,255,0.02)',
+                            color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px',
+                        }}>
+                            <Plus size={14} /> Add Account
+                        </button>
+                    )}
+                    <button onClick={saveSnapshot} disabled={saving} style={{
+                        padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                        cursor: saving ? 'wait' : 'pointer', fontFamily: 'inherit',
+                        border: '1px solid rgba(139,92,246,0.3)', background: saving ? 'rgba(139,92,246,0.15)' : 'rgba(139,92,246,0.06)',
+                        color: 'var(--accent-purple)', display: 'flex', alignItems: 'center', gap: '6px',
+                        transition: 'all 0.2s',
                     }}>
-                        <Plus size={14} /> Add Account
+                        <Save size={14} /> {saving ? 'Saved!' : 'Save Snapshot'}
                     </button>
-                )}
+                </div>
             </div>
         </div>
     );
