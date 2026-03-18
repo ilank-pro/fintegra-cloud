@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import transactionsData from '../data/transactions.json';
+import { useTransactions } from '../hooks/useData';
 
 const formatCurrency = (val) => {
     if (!val) return '₪0';
@@ -16,6 +16,7 @@ function getColor(intensity) {
 }
 
 export default function HeatmapCalendar() {
+    const transactionsData = useTransactions() || [];
     const [hovered, setHovered] = useState(null);
 
     const expenses = transactionsData.filter(t => !t.isIncome);

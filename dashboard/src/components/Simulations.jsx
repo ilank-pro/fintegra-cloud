@@ -5,11 +5,7 @@ import {
     Title, Tooltip, Legend, Filler,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import balanceData from '../data/balance.json';
-import trendsData from '../data/trends.json';
-import progressData from '../data/progress.json';
-import spendingData from '../data/spending.json';
-import pensionData from '../data/pension-accounts.json';
+import { useBalance, useTrends, useProgress, useSpending, usePensionAccounts } from '../hooks/useData';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
@@ -58,6 +54,9 @@ const CATEGORY_TRANSLATIONS = {
 
 // ─── Emergency Fund Runway ──────────────────────────────────────────
 function EmergencyFundRunway() {
+    const balanceData = useBalance() || {};
+    const trendsData = useTrends() || [];
+
     const [cutPercent, setCutPercent] = useState(0);
     const [mounted, setMounted] = useState(false);
 
@@ -178,6 +177,10 @@ function EmergencyFundRunway() {
 
 // ─── Net Worth Trajectory ───────────────────────────────────────────
 function NetWorthTrajectory() {
+    const balanceData = useBalance() || {};
+    const trendsData = useTrends() || [];
+    const pensionData = usePensionAccounts() || [];
+
     const [mounted, setMounted] = useState(false);
     useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
 
@@ -285,6 +288,9 @@ function NetWorthTrajectory() {
 
 // ─── Savings Goal Simulator ─────────────────────────────────────────
 function SavingsGoalSimulator() {
+    const progressData = useProgress() || {};
+    const spendingData = useSpending() || [];
+
     const [targetAmount, setTargetAmount] = useState(30000);
     const [months, setMonths] = useState(12);
     const [showHowTo, setShowHowTo] = useState(false);

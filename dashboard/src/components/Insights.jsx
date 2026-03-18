@@ -1,12 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
-import insightsData from '../data/insights.json';
-import progressData from '../data/progress.json';
-import plansData from '../data/plans.json';
-import spendingData from '../data/spending.json';
-import incomeData from '../data/income.json';
-import trendsData from '../data/trends.json';
-import transactionsData from '../data/transactions.json';
-import trajectoryData from '../data/trajectory.json';
+import { useInsights, useProgress, usePlans, useSpending, useIncome, useTrends, useTransactions, useTrajectory } from '../hooks/useData';
 import { getBudgetMonth } from '../utils/budgetMonth';
 import { Lightbulb, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Activity, ChevronDown, ChevronUp, Trophy, Gauge, Target, BarChart3, History } from 'lucide-react';
 
@@ -189,6 +182,7 @@ function AdvisorCard({ item, index }) {
 
 // ─── Budget vs Actual Trajectory ─────────────────────────────────────
 function BudgetVsActual() {
+    const trajectoryData = useTrajectory() || {};
     const traj = trajectoryData;
     if (!traj || !traj.categories) return null;
 
@@ -268,6 +262,7 @@ function BudgetVsActual() {
 
 // ─── History Average Comparison ──────────────────────────────────────
 function HistoryComparison() {
+    const trajectoryData = useTrajectory() || {};
     const traj = trajectoryData;
     if (!traj || !traj.categories) return null;
 
@@ -343,6 +338,10 @@ const WANTS_CATEGORIES = new Set(['אוכל בחוץ', 'קניות', 'ביגוד
 const SAVINGS_CATEGORIES = new Set(['השקעה וחיסכון']);
 
 function BudgetBenchmark() {
+    const incomeData = useIncome() || [];
+    const spendingData = useSpending() || [];
+    const progressData = useProgress() || {};
+
     const [expanded, setExpanded] = useState(null); // 'needs' | 'wants' | 'savings'
 
     const totalIncome = Array.isArray(incomeData)
@@ -455,9 +454,13 @@ function BudgetBenchmark() {
 
 // ─── Spending Volatility Monitor ─────────────────────────────────────
 function SpendingVolatility() {
+    const trendsData = useTrends() || [];
+    const transactionsData = useTransactions() || [];
+    const spendingData = useSpending() || [];
+
     const sorted = useMemo(() =>
         Array.isArray(trendsData) ? [...trendsData].sort((a, b) => a.month.localeCompare(b.month)) : []
-    , []);
+    , [trendsData]);
 
     if (sorted.length < 2) return null;
 
@@ -623,9 +626,12 @@ function SpendingVolatility() {
 
 // ─── Best Month Replay & Challenge ───────────────────────────────────
 function BestMonthChallenge() {
+    const trendsData = useTrends() || [];
+    const transactionsData = useTransactions() || [];
+
     const sorted = useMemo(() =>
         Array.isArray(trendsData) ? [...trendsData].sort((a, b) => a.month.localeCompare(b.month)) : []
-    , []);
+    , [trendsData]);
 
     if (sorted.length < 2) return null;
 
@@ -784,6 +790,15 @@ function BestMonthChallenge() {
 }
 
 export default function Insights({ selectedMonths }) {
+    const insightsData = useInsights() || [];
+    const progressData = useProgress() || {};
+    const plansData = usePlans() || [];
+    const spendingData = useSpending() || [];
+    const incomeData = useIncome() || [];
+    const trendsData = useTrends() || [];
+    const transactionsData = useTransactions() || [];
+    const trajectoryData = useTrajectory() || {};
+
     const [progress, setProgress] = useState(null);
     const [plans, setPlans] = useState([]);
     const [ringsVisible, setRingsVisible] = useState(false);

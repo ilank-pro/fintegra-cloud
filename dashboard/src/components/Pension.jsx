@@ -1,11 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
     Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement,
     Title, Tooltip, Legend, Filler,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { PiggyBank, Upload, TrendingUp, Clock, Shield, Plus, Trash2, Save } from 'lucide-react';
-import initialHistory from '../data/pension-history.json';
+import { usePensionHistory } from '../hooks/useData';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
@@ -119,7 +121,13 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
     const [selectedOwners, setSelectedOwners] = useState(new Set(['ilan']));
     const [monthlySpending, setMonthlySpending] = useState(40000);
     const [importing, setImporting] = useState(false);
-    const [history, setHistory] = useState(Array.isArray(initialHistory) ? initialHistory : []);
+    const _pensionHistory = usePensionHistory();
+    const [history, setHistory] = useState([]);
+
+    // Sync Convex pension history into local state
+    useEffect(() => {
+        if (_pensionHistory) setHistory(_pensionHistory);
+    }, [_pensionHistory]);
     const [showAddRow, setShowAddRow] = useState(false);
     const [newAccount, setNewAccount] = useState({ name: '', company: '', currentBalance: 0, annualInterest: 4, monthlyDeposit: 0, depositStopAge: 63, monthlyPension: 0 });
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'desc' });
@@ -309,7 +317,9 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
         try {
             const formData = new FormData();
             formData.append('file', file);
-            const res = await fetch(`/api/import-pension?owner=${activeOwner}`, { method: 'POST', body: formData });
+            const siteUrl = import.meta.env.VITE_CONVEX_SITE_URL || import.meta.env.VITE_CONVEX_URL?.replace('.cloud', '.site') || '';
+            formData.append('owner', activeOwner);
+            const res = await fetch(`${siteUrl}/import-pension`, { method: 'POST', body: formData });
             const data = await res.json();
             if (data.ok && data.accounts) {
                 setAllAccounts(data.accounts);
@@ -337,16 +347,24 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
 
     // Save snapshot to persistent history
     const [saving, setSaving] = useState(false);
+    const savePensionSnapshotMutation = useMutation(api.mutations.savePensionSnapshot);
     const saveSnapshot = async () => {
         setSaving(true);
         try {
-            const res = await fetch('/api/save-pension-snapshot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ accounts: allAccounts }),
+            const ownerTotals = {};
+            let totalSavings = 0;
+            for (const a of allAccounts) {
+                const o = a.owner || 'ilan';
+                ownerTotals[o] = (ownerTotals[o] || 0) + (a.currentBalance || 0);
+                totalSavings += a.currentBalance || 0;
+            }
+            const today = new Date().toISOString().slice(0, 10);
+            const updatedHistory = await savePensionSnapshotMutation({
+                date: today,
+                ownerTotals,
+                totalSavings,
             });
-            const data = await res.json();
-            if (data.ok && data.history) setHistory(data.history);
+            if (updatedHistory) setHistory(updatedHistory);
         } catch {} finally {
             setTimeout(() => setSaving(false), 600);
         }

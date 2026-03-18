@@ -1,9 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { CreditCard, TrendingUp, TrendingDown, DollarSign, PiggyBank, Percent, BarChart3, Flame, Trophy, Zap, Info } from 'lucide-react';
-import balanceData from '../data/balance.json';
-import progressData from '../data/progress.json';
-import trajectoryData from '../data/trajectory.json';
-import healthScoreData from '../data/health-score.json';
+import { useBalance, useProgress, useTrajectory, useHealthScore } from '../hooks/useData';
 
 // Hover tooltip component
 // position: "above" (default) | "below"
@@ -119,6 +116,11 @@ function AnimatedPercent({ target, delay, className }) {
 }
 
 export default function Overview({ selectedMonths, availableMonths, pensionOverrides }) {
+    const balanceData = useBalance() || {};
+    const progressData = useProgress() || {};
+    const trajectoryData = useTrajectory() || {};
+    const healthScoreData = useHealthScore() || {};
+
     const [mounted, setMounted] = useState(false);
     const [pendingOpen, setPendingOpen] = useState(false);
 

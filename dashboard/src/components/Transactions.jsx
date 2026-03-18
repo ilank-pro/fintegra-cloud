@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import transactionsData from '../data/transactions.json';
+import { useTransactions } from '../hooks/useData';
 import { getBudgetMonth } from '../utils/budgetMonth';
 import { Search, X, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -26,6 +26,8 @@ const CATEGORY_TRANSLATIONS = {
 };
 
 export default function Transactions({ selectedMonths, drillCategory, onDrillClear }) {
+    const transactionsData = useTransactions() || [];
+
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'income' | 'expenses'
     const [categoryFilter, setCategoryFilter] = useState('');

@@ -1,13 +1,6 @@
 import { useState, useMemo } from 'react';
 import { AlertTriangle, CheckCircle2, AlertCircle, Sparkles, Key, ChevronDown, ChevronUp, RefreshCw, Download, Mail, PiggyBank, Shield } from 'lucide-react';
-import trendsData from '../data/trends.json';
-import balanceData from '../data/balance.json';
-import spendingData from '../data/spending.json';
-import progressData from '../data/progress.json';
-import trajectoryData from '../data/trajectory.json';
-import healthScoreData from '../data/health-score.json';
-import incomeData from '../data/income.json';
-import pensionData from '../data/pension-accounts.json';
+import { useTrends, useBalance, useSpending, useProgress, useTrajectory, useHealthScore, useIncome, usePensionAccounts } from '../hooks/useData';
 
 const formatCurrency = (val) => {
     if (!val && val !== 0) return '₪0';
@@ -30,7 +23,7 @@ const CATEGORY_TRANSLATIONS = {
 //  Rule Engine
 // ═══════════════════════════════════════════════════
 
-function runRules() {
+function runRules({ trendsData, spendingData, progressData, trajectoryData, healthScoreData, balanceData, incomeData, pensionData }) {
     const findings = [];
     const trends = Array.isArray(trendsData) ? [...trendsData].sort((a, b) => a.month.localeCompare(b.month)) : [];
     const spending = Array.isArray(spendingData) ? spendingData : [];
@@ -271,7 +264,7 @@ function runRules() {
 //  Build data summary for AI prompt
 // ═══════════════════════════════════════════════════
 
-function buildDataSummary() {
+function buildDataSummary({ trendsData, spendingData, balanceData, trajectoryData, healthScoreData, progressData, pensionData }) {
     const trends = Array.isArray(trendsData) ? trendsData : [];
     const spending = Array.isArray(spendingData) ? spendingData : [];
     const balances = balanceData?.balances || [];
@@ -330,7 +323,17 @@ const severityConfig = {
 // ═══════════════════════════════════════════════════
 
 export default function Advisor({ aiReport, setAiReport }) {
-    const findings = useMemo(() => runRules(), []);
+    const trendsData = useTrends() || [];
+    const balanceData = useBalance() || {};
+    const spendingData = useSpending() || [];
+    const progressData = useProgress() || {};
+    const trajectoryData = useTrajectory() || {};
+    const healthScoreData = useHealthScore() || {};
+    const incomeData = useIncome() || [];
+    const pensionData = usePensionAccounts() || [];
+
+    const dataBundle = { trendsData, balanceData, spendingData, progressData, trajectoryData, healthScoreData, incomeData, pensionData };
+    const findings = useMemo(() => runRules(dataBundle), [trendsData, balanceData, spendingData, progressData, trajectoryData, healthScoreData, incomeData, pensionData]);
     const [expandedFindings, setExpandedFindings] = useState(new Set());
     const [apiKey, setApiKey] = useState(() => localStorage.getItem('fintegra-anthropic-key') || '');
     const [aiLoading, setAiLoading] = useState(false);
@@ -355,13 +358,14 @@ export default function Advisor({ aiReport, setAiReport }) {
         setAiLoading(true);
         setAiError(null);
         try {
-            const res = await fetch('/api/advisor', {
+            const siteUrl = import.meta.env.VITE_CONVEX_SITE_URL || import.meta.env.VITE_CONVEX_URL?.replace('.cloud', '.site') || '';
+            const res = await fetch(`${siteUrl}/advisor`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     apiKey,
                     findings: findings.map(f => ({ category: f.category, severity: f.severity, title: f.title, finding: f.finding })),
-                    dataSummary: buildDataSummary(),
+                    dataSummary: buildDataSummary(dataBundle),
                 }),
             });
             const data = await res.json();

@@ -13,8 +13,7 @@ import {
     Filler,
 } from 'chart.js';
 import { Bar, Line, Doughnut } from 'react-chartjs-2';
-import trendsData from '../data/trends.json';
-import spendingData from '../data/spending.json';
+import { useTrends, useSpending } from '../hooks/useData';
 
 ChartJS.register(
     CategoryScale, LinearScale, PointElement, LineElement,
@@ -70,6 +69,9 @@ function breakEvenMonths(lastCumulative, avgNet, savingsBoost) {
 }
 
 export default function CashFlow({ selectedMonths }) {
+    const trendsData = useTrends() || [];
+    const spendingData = useSpending() || [];
+
     const [barData, setBarData] = useState(null);
     const [donutData, setDonutData] = useState(null);
     const [savingsBoost, setSavingsBoost] = useState(2000);

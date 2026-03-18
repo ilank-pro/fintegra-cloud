@@ -9,8 +9,7 @@ import {
     Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import spendingData from '../data/spending.json';
-import transactionsData from '../data/transactions.json';
+import { useSpending, useTransactions } from '../hooks/useData';
 import { getBudgetMonth } from '../utils/budgetMonth';
 import HeatmapCalendar from './HeatmapCalendar';
 
@@ -55,6 +54,11 @@ const CHART_COLORS = [
 ];
 
 export default function SpendingBreakdown({ selectedMonths, onCategoryClick }) {
+    const _spendingData = useSpending();
+    const _transactionsData = useTransactions();
+    const spendingData = _spendingData || [];
+    const transactionsData = _transactionsData || [];
+
     const { categories, total } = useMemo(() => {
         // Check if we have transaction data for the selected months
         const allTxns = Array.isArray(transactionsData) ? transactionsData : [];

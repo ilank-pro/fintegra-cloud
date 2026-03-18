@@ -9,12 +9,7 @@ import SpendingBreakdown from './components/SpendingBreakdown';
 import Simulations from './components/Simulations';
 import Advisor from './components/Advisor';
 import Pension from './components/Pension';
-import initialPensionAccounts from './data/pension-accounts.json';
-import healthScoreData from './data/health-score.json';
-import trendsData from './data/trends.json';
-import transactionsData from './data/transactions.json';
-import spendingData from './data/spending.json';
-import incomeData from './data/income.json';
+import { usePensionAccounts, useHealthScore, useTrends, useTransactions, useSpending, useIncome } from './hooks/useData';
 import { getBudgetMonth } from './utils/budgetMonth';
 
 function monthLabel(m: string) {
@@ -22,7 +17,7 @@ function monthLabel(m: string) {
     return new Date(Number(y), Number(mo) - 1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
 }
 
-function buildAvailableMonths() {
+function buildAvailableMonths(trendsData: any[], transactionsData: any[], incomeData: any[], spendingData: any[]) {
     const months: Record<string, { month: string; income: number; expenses: number; net: number; source: string }> = {};
 
     if (Array.isArray(trendsData)) {
@@ -48,15 +43,15 @@ function buildAvailableMonths() {
     }
 
     // Current month from spending/income if not already present
-    const currentIncome = Array.isArray(incomeData) ? (incomeData as any[]).reduce((s, i) => s + (Number(i.amount) || 0), 0) : 0;
-    const currentSpending = Array.isArray(spendingData) ? (spendingData as any[]).reduce((s, c) => s + (Number(c.total) || 0), 0) : 0;
+    const currentIncome = Array.isArray(incomeData) ? incomeData.reduce((s: number, i: any) => s + (Number(i.amount) || 0), 0) : 0;
+    const currentSpending = Array.isArray(spendingData) ? spendingData.reduce((s: number, c: any) => s + (Number(c.total) || 0), 0) : 0;
     let currentMonth: string | null = null;
     if (Array.isArray(incomeData)) {
-        const dates = (incomeData as any[]).map(i => i.date).filter(Boolean).sort();
+        const dates = incomeData.map((i: any) => i.date).filter(Boolean).sort();
         if (dates.length > 0) currentMonth = dates[dates.length - 1].slice(0, 7);
     }
     if (!currentMonth && Array.isArray(transactionsData)) {
-        const dates = (transactionsData as any[]).map(t => t.date).filter(Boolean).sort();
+        const dates = transactionsData.map((t: any) => t.date).filter(Boolean).sort();
         if (dates.length > 0) currentMonth = dates[dates.length - 1].slice(0, 7);
     }
     if (currentMonth && !months[currentMonth]) {
@@ -81,21 +76,38 @@ function App() {
         setTheme(t => t === 'dark' ? 'light' : 'dark');
     }, []);
 
-    const availableMonths = useMemo(() => buildAvailableMonths(), []);
-    const [selectedMonths, setSelectedMonths] = useState<Set<string>>(() => {
-        if (availableMonths.length > 0) return new Set([availableMonths[0].month]);
-        return new Set();
-    });
+    // Convex queries
+    const pensionAccounts = usePensionAccounts();
+    const healthScoreData = useHealthScore();
+    const trendsData = useTrends();
+    const transactionsData = useTransactions();
+    const spendingData = useSpending();
+    const incomeData = useIncome();
 
-    const [pensionAccounts, setPensionAccounts] = useState(initialPensionAccounts);
+    const availableMonths = useMemo(
+        () => buildAvailableMonths(trendsData || [], transactionsData || [], incomeData || [], spendingData || []),
+        [trendsData, transactionsData, incomeData, spendingData]
+    );
+
+    const [selectedMonths, setSelectedMonths] = useState<Set<string>>(new Set());
+
+    // Auto-select latest month when data loads
+    useEffect(() => {
+        if (availableMonths.length > 0 && selectedMonths.size === 0) {
+            setSelectedMonths(new Set([availableMonths[0].month]));
+        }
+    }, [availableMonths, selectedMonths.size]);
+
     const [retirementAges, setRetirementAges] = useState<Record<string, number>>({ ilan: 63, spouse: 65 });
 
     const pensionOverrides = useMemo(() => {
+        if (!pensionAccounts || !healthScoreData) return null;
+
         const OWNER_AGES: Record<string, number> = { ilan: 53, spouse: 51 };
         const clamp = (v: number) => Math.max(0, Math.min(100, v));
 
-        const totalSavings = pensionAccounts.reduce((s, a) => s + (a.currentBalance || 0), 0);
-        const monthlyDeposits = pensionAccounts.reduce((s, a) => s + (a.monthlyDeposit || 0), 0);
+        const totalSavings = pensionAccounts.reduce((s: number, a: any) => s + (a.currentBalance || 0), 0);
+        const monthlyDeposits = pensionAccounts.reduce((s: number, a: any) => s + (a.monthlyDeposit || 0), 0);
 
         let projectedPension = 0;
         for (const a of pensionAccounts) {
@@ -116,8 +128,8 @@ function App() {
         const targetMonthly = (healthScoreData as any)?.retirement?.targetMonthly || 43232;
         const retirementReadiness = clamp(Math.round(targetMonthly > 0 ? (sustainableMonthly / targetMonthly) * 100 : 0));
 
-        const accessible = pensionAccounts.filter(a => a.type === 'hishtalmut').reduce((s, a) => s + (a.currentBalance || 0), 0);
-        const longTerm = pensionAccounts.filter(a => a.type !== 'hishtalmut').reduce((s, a) => s + (a.currentBalance || 0), 0);
+        const accessible = pensionAccounts.filter((a: any) => a.type === 'hishtalmut').reduce((s: number, a: any) => s + (a.currentBalance || 0), 0);
+        const longTerm = pensionAccounts.filter((a: any) => a.type !== 'hishtalmut').reduce((s: number, a: any) => s + (a.currentBalance || 0), 0);
         const liquid = (healthScoreData as any)?.assetTiers?.liquid || 0;
         const totalNetWorth = liquid + accessible + longTerm;
 
@@ -141,7 +153,7 @@ function App() {
             retirement: { projectedPension, sustainableMonthly, targetMonthly, totalSavings, monthlyDeposits },
             composite, grade, level, levelTitle, xpInLevel,
         };
-    }, [pensionAccounts, retirementAges]);
+    }, [pensionAccounts, retirementAges, healthScoreData]);
 
     const [refreshing, setRefreshing] = useState(false);
     const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
@@ -151,7 +163,6 @@ function App() {
 
     const toggleMonth = useCallback((m: string, e: React.MouseEvent) => {
         if (e.metaKey || e.ctrlKey) {
-            // Cmd/Ctrl+Click: toggle this month while keeping others
             setSelectedMonths(prev => {
                 const next = new Set(prev);
                 if (next.has(m)) {
@@ -162,7 +173,6 @@ function App() {
                 return next;
             });
         } else {
-            // Plain click: select only this month
             setSelectedMonths(new Set([m]));
         }
     }, []);
@@ -194,6 +204,18 @@ function App() {
         }
     };
 
+    // Loading state
+    if (pensionAccounts === undefined || trendsData === undefined || transactionsData === undefined) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--text-secondary)', fontFamily: 'inherit' }}>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '24px', marginBottom: '8px' }}>Loading...</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Connecting to database</div>
+                </div>
+            </div>
+        );
+    }
+
     const renderContent = () => {
         switch (activeTab) {
             case 'overview': return <Overview selectedMonths={selectedMonths} availableMonths={availableMonths} pensionOverrides={pensionOverrides} />;
@@ -203,7 +225,7 @@ function App() {
             case 'insights': return <Insights selectedMonths={selectedMonths} />;
             case 'simulations': return <Simulations selectedMonths={selectedMonths} />;
             case 'advisor': return <Advisor aiReport={aiReport} setAiReport={setAiReport} />;
-            case 'pension': return <Pension allAccounts={pensionAccounts} setAllAccounts={setPensionAccounts} retirementAges={retirementAges} setRetirementAges={setRetirementAges} />;
+            case 'pension': return <Pension allAccounts={pensionAccounts} setAllAccounts={() => {}} retirementAges={retirementAges} setRetirementAges={setRetirementAges} />;
             default: return <Overview selectedMonths={selectedMonths} availableMonths={availableMonths} pensionOverrides={pensionOverrides} />;
         }
     };
@@ -331,17 +353,19 @@ function App() {
 
                         <div style={{ width: '1px', height: '20px', background: 'var(--border-light)', margin: '0 2px' }} />
 
-                        <button onClick={handleRefresh} disabled={refreshing} style={{
-                            padding: '4px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
-                            cursor: refreshing ? 'wait' : 'pointer', fontFamily: 'inherit',
-                            border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.08)',
-                            color: 'var(--accent-success)',
-                            display: 'flex', alignItems: 'center', gap: '5px',
-                            opacity: refreshing ? 0.7 : 1, transition: 'opacity 0.2s',
-                        }}>
-                            <RefreshCw size={11} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
-                            {refreshing ? 'Refreshing...' : 'Refresh'}
-                        </button>
+                        {import.meta.env.DEV && (
+                            <button onClick={handleRefresh} disabled={refreshing} style={{
+                                padding: '4px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                                cursor: refreshing ? 'wait' : 'pointer', fontFamily: 'inherit',
+                                border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.08)',
+                                color: 'var(--accent-success)',
+                                display: 'flex', alignItems: 'center', gap: '5px',
+                                opacity: refreshing ? 0.7 : 1, transition: 'opacity 0.2s',
+                            }}>
+                                <RefreshCw size={11} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+                                {refreshing ? 'Refreshing...' : 'Refresh'}
+                            </button>
+                        )}
 
                         {refreshMsg && (
                             <span style={{ fontSize: '11px', fontWeight: 600, color: refreshMsg.includes('failed') ? 'var(--accent-danger)' : 'var(--accent-success)' }}>
