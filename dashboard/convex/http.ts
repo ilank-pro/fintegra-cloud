@@ -245,7 +245,7 @@ ${JSON.stringify(dataSummary, null, 2)}`;
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-6-20250514",
+          model: "claude-sonnet-4-6-latest",
           max_tokens: 4000,
           system: systemPrompt,
           messages: [{ role: "user", content: userMessage }],
@@ -294,7 +294,7 @@ ${reportSummary}`;
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-6-20250514",
+          model: "claude-sonnet-4-6-latest",
           max_tokens: 2000,
           system: systemPrompt,
           messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
