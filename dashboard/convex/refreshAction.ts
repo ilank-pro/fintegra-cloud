@@ -414,7 +414,16 @@ export const refreshData = action({
     }
 
     if (processed) {
-      await ctx.runMutation(api.mutations.replaceTransactions, { items: [...historicalTransactions, ...processed.transactions] });
+      // Deduplicate: current month first so its category overrides take priority
+      const allTransactions = [...processed.transactions, ...historicalTransactions];
+      const seen = new Set<string>();
+      const dedupedTransactions = allTransactions.filter(t => {
+        const key = `${t.date}_${t.amount}_${t.businessName}_${t.isIncome || false}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      await ctx.runMutation(api.mutations.replaceTransactions, { items: dedupedTransactions });
       await ctx.runMutation(api.mutations.replaceIncome, { items: processed.income });
       await ctx.runMutation(api.mutations.replaceSpending, { items: processed.spending });
       await ctx.runMutation(api.mutations.replaceTrajectory, { data: processed.trajectory });
