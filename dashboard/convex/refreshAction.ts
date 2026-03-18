@@ -199,7 +199,7 @@ function computeHealthScore(
   trendsArr: any[],
   pensionAccounts: any[],
 ) {
-  const { cashflow, trajectoryCategories, pctMonthElapsed } = processed;
+  const { cashflow, trajectoryCategories } = processed;
 
   const avgIncome = trendsArr.length > 0 ? trendsArr.reduce((s, d) => s + (d.income || 0), 0) / trendsArr.length : cashflow.actualIncome || 1;
   const avgNet = trendsArr.length > 0 ? trendsArr.reduce((s, d) => s + (d.net || 0), 0) / trendsArr.length : cashflow.projectedNet;
