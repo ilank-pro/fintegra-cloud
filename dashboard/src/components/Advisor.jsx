@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { AlertTriangle, CheckCircle2, AlertCircle, Sparkles, Key, ChevronDown, ChevronUp, RefreshCw, Download, Mail, PiggyBank, Shield } from 'lucide-react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { AlertTriangle, CheckCircle2, AlertCircle, Sparkles, Key, ChevronDown, ChevronUp, RefreshCw, Download, Mail, PiggyBank, Shield, Send, MessageCircle } from 'lucide-react';
 import { useTrends, useBalance, useSpending, useProgress, useTrajectory, useHealthScore, useIncome, usePensionAccounts } from '../hooks/useData';
 
 const formatCurrency = (val) => {
@@ -338,6 +338,56 @@ export default function Advisor({ aiReport, setAiReport }) {
     const [apiKey, setApiKey] = useState(() => localStorage.getItem('fintegra-anthropic-key') || '');
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError, setAiError] = useState(null);
+    const [chatMessages, setChatMessages] = useState([]);
+    const [chatInput, setChatInput] = useState('');
+    const [chatLoading, setChatLoading] = useState(false);
+    const chatEndRef = useRef(null);
+
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [chatMessages]);
+
+    const SUGGESTED_QUESTIONS = [
+        "How can I reduce my monthly expenses?",
+        "What's my pension outlook at age 63?",
+        "What if I save ₪2,000 more per month?",
+        "Where should I focus first?",
+    ];
+
+    const sendChatMessage = async (text) => {
+        if (!text?.trim() || !apiKey || chatLoading) return;
+        const userMsg = { role: 'user', content: text.trim() };
+        const updatedMessages = [...chatMessages, userMsg];
+        setChatMessages(updatedMessages);
+        setChatInput('');
+        setChatLoading(true);
+        try {
+            const siteUrl = import.meta.env.VITE_CONVEX_SITE_URL || import.meta.env.VITE_CONVEX_URL?.replace('.cloud', '.site') || '';
+            const reportSummary = aiReport
+                ? `Executive Summary: ${aiReport.executiveSummary || ''}\nKey Findings: ${(aiReport.topFindings || []).map(f => `${f.title}: ${f.detail}`).join('; ')}`
+                : '';
+            const res = await fetch(`${siteUrl}/advisor-chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    apiKey,
+                    messages: updatedMessages,
+                    dataSummary: buildDataSummary(dataBundle),
+                    reportSummary,
+                }),
+            });
+            const data = await res.json();
+            if (data.ok) {
+                setChatMessages(prev => [...prev, { role: 'assistant', content: data.content }]);
+            } else {
+                setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${data.error}` }]);
+            }
+        } catch {
+            setChatMessages(prev => [...prev, { role: 'assistant', content: 'Network error — check your connection.' }]);
+        } finally {
+            setChatLoading(false);
+        }
+    };
 
     const toggleFinding = (id) => {
         setExpandedFindings(prev => {
@@ -609,7 +659,9 @@ export default function Advisor({ aiReport, setAiReport }) {
                 )}
 
                 {aiReport && !aiReport._raw && (
-                    <div className="print-report" style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ marginTop: '16px', display: 'flex', gap: '20px' }}>
+                    {/* Left: Report */}
+                    <div className="print-report" style={{ flex: '1 1 60%', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '80vh', overflowY: 'auto', paddingRight: '8px' }}>
                         <div className="print-title" style={{ display: 'none' }}>Financial Advisory Report</div>
                         <div className="print-date" style={{ display: 'none' }}>Generated {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
 
@@ -903,6 +955,98 @@ export default function Advisor({ aiReport, setAiReport }) {
                                 <p style={{ fontSize: '13px', lineHeight: 1.7, color: 'var(--text-secondary)', margin: 0 }}>{aiReport.longTermOutlook}</p>
                             </div>
                         )}
+                    </div>
+
+                    {/* Right: Chat Panel */}
+                    <div className="no-print" style={{
+                        flex: '0 0 38%', display: 'flex', flexDirection: 'column',
+                        background: 'rgba(255,255,255,0.02)', borderRadius: '12px',
+                        border: '1px solid var(--border-light)', maxHeight: '80vh',
+                        position: 'sticky', top: '20px', alignSelf: 'flex-start',
+                    }}>
+                        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <MessageCircle size={16} color="var(--accent-purple)" />
+                            <span style={{ fontSize: '13px', fontWeight: 600 }}>Ask your Financial Advisor</span>
+                        </div>
+
+                        {/* Messages */}
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '300px' }}>
+                            {chatMessages.length === 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-muted)' }}>
+                                    <Sparkles size={24} style={{ opacity: 0.3 }} />
+                                    <p style={{ fontSize: '12px', textAlign: 'center', margin: 0 }}>
+                                        Ask follow-up questions about your report or financial situation.
+                                    </p>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center', marginTop: '8px' }}>
+                                        {SUGGESTED_QUESTIONS.map((q, i) => (
+                                            <button key={i} onClick={() => sendChatMessage(q)} style={{
+                                                padding: '6px 12px', borderRadius: '16px', fontSize: '11px',
+                                                border: '1px solid rgba(139,92,246,0.2)', background: 'rgba(139,92,246,0.06)',
+                                                color: 'var(--accent-purple)', cursor: 'pointer', fontFamily: 'inherit',
+                                            }}>
+                                                {q}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {chatMessages.map((msg, i) => (
+                                <div key={i} style={{
+                                    alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                                    maxWidth: '85%',
+                                    padding: '10px 14px', borderRadius: '12px',
+                                    fontSize: '12px', lineHeight: 1.6,
+                                    background: msg.role === 'user'
+                                        ? 'rgba(139,92,246,0.15)'
+                                        : 'rgba(255,255,255,0.04)',
+                                    border: msg.role === 'user'
+                                        ? '1px solid rgba(139,92,246,0.25)'
+                                        : '1px solid var(--border-light)',
+                                    color: 'var(--text-secondary)',
+                                    whiteSpace: 'pre-wrap',
+                                }}>
+                                    {msg.content}
+                                </div>
+                            ))}
+                            {chatLoading && (
+                                <div style={{ alignSelf: 'flex-start', padding: '10px 14px', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-light)', fontSize: '12px', color: 'var(--text-muted)' }}>
+                                    <RefreshCw size={12} style={{ animation: 'spin 1s linear infinite', marginRight: '6px' }} />
+                                    Thinking...
+                                </div>
+                            )}
+                            <div ref={chatEndRef} />
+                        </div>
+
+                        {/* Input */}
+                        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-light)', display: 'flex', gap: '8px' }}>
+                            <input
+                                type="text"
+                                placeholder="Ask a follow-up question..."
+                                value={chatInput}
+                                onChange={(e) => setChatInput(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(chatInput); } }}
+                                disabled={chatLoading}
+                                style={{
+                                    flex: 1, padding: '8px 12px', borderRadius: '8px', fontSize: '12px',
+                                    border: '1px solid var(--border-light)', background: 'rgba(255,255,255,0.04)',
+                                    color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit',
+                                }}
+                            />
+                            <button
+                                onClick={() => sendChatMessage(chatInput)}
+                                disabled={!chatInput.trim() || chatLoading}
+                                style={{
+                                    padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(139,92,246,0.3)',
+                                    background: 'rgba(139,92,246,0.1)', color: 'var(--accent-purple)',
+                                    cursor: !chatInput.trim() || chatLoading ? 'not-allowed' : 'pointer',
+                                    opacity: !chatInput.trim() || chatLoading ? 0.5 : 1,
+                                    fontFamily: 'inherit', display: 'flex', alignItems: 'center',
+                                }}
+                            >
+                                <Send size={14} />
+                            </button>
+                        </div>
+                    </div>
                     </div>
                 )}
 

@@ -19,7 +19,7 @@ function corsResponse(body: any, status = 200) {
 }
 
 // CORS preflight for all routes
-for (const path of ["/import-pension", "/advisor", "/refresh"]) {
+for (const path of ["/import-pension", "/advisor", "/advisor-chat", "/refresh"]) {
   http.route({
     path,
     method: "OPTIONS",
@@ -261,6 +261,55 @@ ${JSON.stringify(dataSummary, null, 2)}`;
       const report = result.content?.[0]?.text || "No report generated";
 
       return corsResponse({ ok: true, report });
+    } catch (err: any) {
+      return corsResponse({ ok: false, error: err.message || "Unknown error" }, 500);
+    }
+  }),
+});
+
+// --- AI Chat ---
+http.route({
+  path: "/advisor-chat",
+  method: "POST",
+  handler: httpAction(async (_ctx, request) => {
+    try {
+      const { apiKey, messages, dataSummary, reportSummary } = await request.json();
+
+      if (!apiKey) return corsResponse({ ok: false, error: "API key required" }, 400);
+      if (!messages?.length) return corsResponse({ ok: false, error: "No messages" }, 400);
+
+      const systemPrompt = `You are a professional Israeli financial advisor continuing a consultation. You have already provided a detailed report to this client. Use their financial data below to answer follow-up questions accurately. Be specific with numbers (ILS ₪). Keep responses concise (2-4 paragraphs max) unless the user asks for more detail. Format key numbers in bold using **number** syntax.
+
+## Client's Financial Data
+${JSON.stringify(dataSummary, null, 2)}
+
+## Report Summary
+${reportSummary}`;
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 2000,
+          system: systemPrompt,
+          messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        return corsResponse({ ok: false, error: `API error: ${response.status} ${errText.slice(0, 200)}` }, response.status);
+      }
+
+      const result = (await response.json()) as any;
+      const content = result.content?.[0]?.text || "No response generated";
+
+      return corsResponse({ ok: true, content });
     } catch (err: any) {
       return corsResponse({ ok: false, error: err.message || "Unknown error" }, 500);
     }
