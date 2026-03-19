@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -6,18 +6,18 @@ import {
     PointElement,
     LineElement,
     BarElement,
-    ArcElement,
     Title,
     Tooltip,
     Legend,
     Filler,
 } from 'chart.js';
-import { Bar, Line, Doughnut } from 'react-chartjs-2';
-import { useTrends, useSpending } from '../hooks/useData';
+import { Bar, Line } from 'react-chartjs-2';
+import { useTrends, useSpending, useTransactions } from '../hooks/useData';
+import { AlertTriangle, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, Scissors } from 'lucide-react';
 
 ChartJS.register(
     CategoryScale, LinearScale, PointElement, LineElement,
-    BarElement, ArcElement, Title, Tooltip, Legend, Filler
+    BarElement, Title, Tooltip, Legend, Filler
 );
 
 const formatCurrency = (val) => {
@@ -36,10 +36,6 @@ const CATEGORY_TRANSLATIONS = {
     'ביגוד והנעלה': 'Clothing', 'פנאי': 'Leisure', 'עמלות': 'Fees',
 };
 
-const DONUT_COLORS = [
-    '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b',
-    '#ef4444', '#14b8a6', '#f97316', '#ec4899',
-];
 
 const tooltipDefaults = {
     backgroundColor: 'rgba(15, 23, 42, 0.95)',
@@ -71,11 +67,13 @@ function breakEvenMonths(lastCumulative, avgNet, savingsBoost) {
 export default function CashFlow({ selectedMonths }) {
     const trendsData = useTrends() || [];
     const spendingData = useSpending() || [];
+    const transactionsData = useTransactions() || [];
 
     const [barData, setBarData] = useState(null);
-    const [donutData, setDonutData] = useState(null);
     const [savingsBoost, setSavingsBoost] = useState(2000);
     const [showProjection, setShowProjection] = useState(true);
+    const [expandedCategory, setExpandedCategory] = useState(null);
+    const [heatmapCell, setHeatmapCell] = useState(null); // { category, month }
 
     const sorted = useMemo(() => {
         if (!Array.isArray(trendsData)) return [];
@@ -112,23 +110,71 @@ export default function CashFlow({ selectedMonths }) {
                 });
             }
         } catch (e) { console.error(e); }
-
-        try {
-            if (Array.isArray(spendingData)) {
-                const top8 = [...spendingData].sort((a, b) => b.total - a.total).slice(0, 8);
-                setDonutData({
-                    labels: top8.map(c => CATEGORY_TRANSLATIONS[c.name] || c.name),
-                    datasets: [{
-                        data: top8.map(c => c.total),
-                        backgroundColor: DONUT_COLORS.map(c => c + 'cc'),
-                        borderColor: DONUT_COLORS,
-                        borderWidth: 1,
-                        hoverOffset: 8,
-                    }],
-                });
-            }
-        } catch (e) { console.error(e); }
     }, [sorted]);
+
+    // Category spending analysis from transaction data
+    const categoryAnalysis = useMemo(() => {
+        const expenses = transactionsData.filter(t => !t.isIncome && t.category && t.date);
+        if (!expenses.length) return { categories: [], months: [], totalExpenses: 0 };
+
+        // Get all months, sorted, take last 6
+        const allMonths = [...new Set(expenses.map(t => t.date.slice(0, 7)))].sort();
+        const months = allMonths.slice(-6);
+        const monthSet = new Set(months);
+
+        // Group by category
+        const catMap = {};
+        for (const t of expenses) {
+            const m = t.date.slice(0, 7);
+            if (!monthSet.has(m)) continue;
+            const cat = t.category;
+            if (!catMap[cat]) catMap[cat] = { name: cat, nameEn: CATEGORY_TRANSLATIONS[cat] || cat, transactions: [], monthlyTotals: {} };
+            catMap[cat].transactions.push(t);
+            catMap[cat].monthlyTotals[m] = (catMap[cat].monthlyTotals[m] || 0) + t.amount;
+        }
+
+        // Compute stats per category
+        const categories = Object.values(catMap).map(cat => {
+            const monthlyArr = months.map(m => cat.monthlyTotals[m] || 0);
+            const total = monthlyArr.reduce((s, v) => s + v, 0);
+            const avg = total / months.length;
+            const variance = monthlyArr.reduce((s, v) => s + (v - avg) ** 2, 0) / months.length;
+            const stdDev = Math.sqrt(variance);
+
+            // Transaction-level outlier detection
+            const txnAmounts = cat.transactions.map(t => t.amount);
+            const txnAvg = txnAmounts.reduce((s, v) => s + v, 0) / txnAmounts.length;
+            const txnVariance = txnAmounts.reduce((s, v) => s + (v - txnAvg) ** 2, 0) / txnAmounts.length;
+            const txnStdDev = Math.sqrt(txnVariance);
+            const outlierThreshold = txnAvg + 1.5 * txnStdDev;
+
+            const outliers = cat.transactions
+                .filter(t => t.amount > outlierThreshold && t.amount > txnAvg * 2)
+                .sort((a, b) => b.amount - a.amount);
+
+            // Monthly outlier detection
+            const monthlyOutlierThreshold = avg + 1.5 * stdDev;
+            const outlierMonths = new Set(months.filter(m => (cat.monthlyTotals[m] || 0) > monthlyOutlierThreshold));
+
+            // Trend: compare last 2 months avg to overall avg
+            const recent = monthlyArr.slice(-2);
+            const recentAvg = recent.reduce((s, v) => s + v, 0) / recent.length;
+            const trend = recentAvg > avg * 1.15 ? 'up' : recentAvg < avg * 0.85 ? 'down' : 'stable';
+
+            // Savings potential: if outlier transactions were at avg, how much saved per month
+            const outlierExcess = outliers.reduce((s, t) => s + (t.amount - txnAvg), 0);
+            const savingsPotential = months.length > 0 ? outlierExcess / months.length : 0;
+
+            return {
+                ...cat, total, avg, stdDev, monthlyArr, outliers, outlierMonths,
+                trend, savingsPotential, txnAvg, outlierThreshold, txnCount: cat.transactions.length,
+            };
+        });
+
+        categories.sort((a, b) => b.total - a.total);
+        const totalExpenses = categories.reduce((s, c) => s + c.total, 0);
+        return { categories: categories.slice(0, 10), months, totalExpenses };
+    }, [transactionsData]);
 
     // Cumulative chart derived from sorted + slider
     const cumulativeChartData = (() => {
@@ -263,26 +309,6 @@ export default function CashFlow({ selectedMonths }) {
         },
     };
 
-    const donutOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'right',
-                labels: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans', size: 12 }, padding: 12 },
-            },
-            tooltip: {
-                ...tooltipDefaults,
-                callbacks: {
-                    label: (ctx) => {
-                        const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                        const pct = ((ctx.raw / total) * 100).toFixed(1);
-                        return ` ${formatCurrency(ctx.raw)}  (${pct}%)`;
-                    },
-                },
-            },
-        },
-    };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -360,17 +386,252 @@ export default function CashFlow({ selectedMonths }) {
                 )}
             </div>
 
-            {/* Spending Distribution Donut */}
+            {/* Section A: Sparkline Table + Outliers */}
+            {categoryAnalysis.categories.length > 0 && (
             <div className="glass-panel" style={{ padding: '24px' }}>
-                <h3 style={{ marginBottom: '20px', fontWeight: 600 }}>Spending Distribution (Top 8 Categories)</h3>
-                {donutData ? (
-                    <div style={{ height: '260px' }}>
-                        <Doughnut data={donutData} options={donutOptions} />
-                    </div>
-                ) : (
-                    <div className="flex-center text-muted" style={{ height: '260px' }}>No spending data available.</div>
-                )}
+                <div className="flex-between" style={{ marginBottom: '16px' }}>
+                    <h3 style={{ fontWeight: 600 }}>Category Spend Analysis</h3>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        {categoryAnalysis.months.length} months | Total: {formatCurrency(categoryAnalysis.totalExpenses)}
+                    </span>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                        <thead>
+                            <tr style={{ borderBottom: '1px solid var(--border-light)', color: 'var(--text-muted)' }}>
+                                <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600 }}>Category</th>
+                                <th style={{ padding: '8px', textAlign: 'center', fontWeight: 600, width: '120px' }}>Trend</th>
+                                <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>Total</th>
+                                <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>Avg/mo</th>
+                                <th style={{ padding: '8px', textAlign: 'center', fontWeight: 600, width: '40px' }}></th>
+                                <th style={{ padding: '8px', textAlign: 'center', fontWeight: 600 }}>Outliers</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {categoryAnalysis.categories.map(cat => {
+                                const isExpanded = expandedCategory === cat.name;
+                                const TrendIcon = cat.trend === 'up' ? TrendingUp : cat.trend === 'down' ? TrendingDown : Minus;
+                                const trendColor = cat.trend === 'up' ? 'var(--accent-danger)' : cat.trend === 'down' ? 'var(--accent-success)' : 'var(--text-muted)';
+                                // Sparkline SVG
+                                const sparkMax = Math.max(...cat.monthlyArr, 1);
+                                const sparkW = 100, sparkH = 24;
+                                const sparkPoints = cat.monthlyArr.map((v, i) => `${(i / Math.max(cat.monthlyArr.length - 1, 1)) * sparkW},${sparkH - (v / sparkMax) * sparkH}`).join(' ');
+                                return (
+                                    <React.Fragment key={cat.name}>
+                                    <tr
+                                        onClick={() => setExpandedCategory(isExpanded ? null : cat.name)}
+                                        style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}
+                                        className="hover-row"
+                                    >
+                                        <td style={{ padding: '10px 8px', fontWeight: 600 }}>{cat.nameEn}</td>
+                                        <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                                            <svg width={sparkW} height={sparkH} style={{ verticalAlign: 'middle' }}>
+                                                <polyline points={sparkPoints} fill="none" stroke="var(--accent-primary)" strokeWidth="1.5" />
+                                            </svg>
+                                        </td>
+                                        <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700 }}>{formatCurrency(cat.total)}</td>
+                                        <td style={{ padding: '10px 8px', textAlign: 'right', color: 'var(--text-secondary)' }}>{formatCurrency(cat.avg)}</td>
+                                        <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                                            <TrendIcon size={14} color={trendColor} />
+                                        </td>
+                                        <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                                            {cat.outliers.length > 0 ? (
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '10px', background: 'rgba(255,0,85,0.08)', border: '1px solid rgba(255,0,85,0.2)', color: 'var(--accent-danger)', fontSize: '11px', fontWeight: 600 }}>
+                                                    <AlertTriangle size={10} /> {cat.outliers.length}
+                                                </span>
+                                            ) : (
+                                                <span style={{ color: 'var(--text-muted)' }}>—</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                    {isExpanded && cat.outliers.length > 0 && (
+                                        <tr>
+                                            <td colSpan={6} style={{ padding: '0 8px 12px 24px', background: 'rgba(255,255,255,0.01)' }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px', marginTop: '8px' }}>
+                                                    Outlier transactions (above {formatCurrency(cat.outlierThreshold)} threshold):
+                                                </div>
+                                                {cat.outliers.slice(0, 5).map((t, i) => (
+                                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: '11px' }}>
+                                                        <span style={{ color: 'var(--text-secondary)' }}>
+                                                            <AlertTriangle size={10} color="var(--accent-danger)" style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                                                            {t.date} — {t.businessName}
+                                                        </span>
+                                                        <span>
+                                                            <strong style={{ color: 'var(--accent-danger)' }}>{formatCurrency(t.amount)}</strong>
+                                                            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>(avg: {formatCurrency(cat.txnAvg)})</span>
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {isExpanded && cat.outliers.length === 0 && (
+                                        <tr>
+                                            <td colSpan={6} style={{ padding: '8px 8px 12px 24px', fontSize: '11px', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.01)' }}>
+                                                No outlier transactions detected. Spending is consistent.
+                                            </td>
+                                        </tr>
+                                    )}
+                                    </React.Fragment>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
             </div>
+            )}
+
+            {/* Section C: Heatmap Grid */}
+            {categoryAnalysis.categories.length > 0 && (
+            <div className="glass-panel" style={{ padding: '24px' }}>
+                <h3 style={{ marginBottom: '16px', fontWeight: 600 }}>Spending Heatmap</h3>
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                        <thead>
+                            <tr style={{ color: 'var(--text-muted)' }}>
+                                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600 }}>Category</th>
+                                {categoryAnalysis.months.map(m => (
+                                    <th key={m} style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600 }}>{monthLabel(m)}</th>
+                                ))}
+                                <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600 }}>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {categoryAnalysis.categories.map(cat => {
+                                const maxVal = Math.max(...cat.monthlyArr, 1);
+                                return (
+                                    <React.Fragment key={cat.name}>
+                                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                        <td style={{ padding: '6px 8px', fontWeight: 600, fontSize: '11px', whiteSpace: 'nowrap' }}>{cat.nameEn}</td>
+                                        {categoryAnalysis.months.map((m, i) => {
+                                            const val = cat.monthlyArr[i];
+                                            const intensity = val / maxVal;
+                                            const isOutlier = cat.outlierMonths.has(m);
+                                            const isSelected = heatmapCell?.category === cat.name && heatmapCell?.month === m;
+                                            return (
+                                                <td key={m} style={{ padding: '4px' }}>
+                                                    <div
+                                                        onClick={() => setHeatmapCell(isSelected ? null : { category: cat.name, month: m })}
+                                                        style={{
+                                                            padding: '8px 6px', borderRadius: '6px', textAlign: 'center', cursor: 'pointer',
+                                                            fontSize: '10px', fontWeight: 600, position: 'relative',
+                                                            background: val > 0
+                                                                ? `rgba(139, 92, 246, ${0.08 + intensity * 0.4})`
+                                                                : 'rgba(255,255,255,0.02)',
+                                                            border: isOutlier
+                                                                ? '2px solid var(--accent-danger)'
+                                                                : isSelected
+                                                                    ? '2px solid var(--accent-primary)'
+                                                                    : '1px solid transparent',
+                                                            color: val > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
+                                                            transition: 'all 0.15s',
+                                                        }}
+                                                    >
+                                                        {val > 0 ? formatCurrency(val) : '—'}
+                                                        {isOutlier && <AlertTriangle size={8} color="var(--accent-danger)" style={{ position: 'absolute', top: 2, right: 2 }} />}
+                                                    </div>
+                                                </td>
+                                            );
+                                        })}
+                                        <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700, fontSize: '11px' }}>{formatCurrency(cat.total)}</td>
+                                    </tr>
+                                    {heatmapCell?.category === cat.name && (() => {
+                                        const cellTxns = cat.transactions
+                                            .filter(t => t.date?.startsWith(heatmapCell.month))
+                                            .sort((a, b) => b.amount - a.amount);
+                                        return cellTxns.length > 0 ? (
+                                            <tr>
+                                                <td colSpan={categoryAnalysis.months.length + 2} style={{ padding: '6px 8px 12px 24px', background: 'rgba(255,255,255,0.01)' }}>
+                                                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                                        {cat.nameEn} — {monthLabel(heatmapCell.month)} ({cellTxns.length} transactions)
+                                                    </div>
+                                                    {cellTxns.slice(0, 8).map((t, i) => (
+                                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '11px', borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                                                            <span style={{ color: 'var(--text-secondary)' }}>{t.date} — {t.businessName}</span>
+                                                            <span style={{ fontWeight: 600, color: t.amount > cat.outlierThreshold ? 'var(--accent-danger)' : 'var(--text-primary)' }}>
+                                                                {formatCurrency(t.amount)}
+                                                                {t.amount > cat.outlierThreshold && <AlertTriangle size={9} style={{ marginLeft: '3px', verticalAlign: 'middle' }} color="var(--accent-danger)" />}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </td>
+                                            </tr>
+                                        ) : null;
+                                    })()}
+                                    </React.Fragment>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+                <div style={{ marginTop: '8px', fontSize: '10px', color: 'var(--text-muted)' }}>
+                    <AlertTriangle size={9} style={{ verticalAlign: 'middle', marginRight: '3px' }} color="var(--accent-danger)" />
+                    = outlier month (&gt;1.5× category standard deviation above average). Click any cell for details.
+                </div>
+            </div>
+            )}
+
+            {/* Section D: Category Cards with Savings Potential */}
+            {(() => {
+                const withSavings = categoryAnalysis.categories.filter(c => c.savingsPotential > 0).sort((a, b) => b.savingsPotential - a.savingsPotential);
+                const totalPotential = withSavings.reduce((s, c) => s + c.savingsPotential, 0);
+                if (!withSavings.length) return null;
+                return (
+                    <div className="glass-panel" style={{ padding: '24px' }}>
+                        <div className="flex-between" style={{ marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Scissors size={16} color="var(--accent-success)" />
+                                <h3 style={{ fontWeight: 600 }}>Savings Potential</h3>
+                            </div>
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent-success)' }}>
+                                ~{formatCurrency(totalPotential)}/mo across {withSavings.length} categories
+                            </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
+                            {withSavings.slice(0, 6).map(cat => {
+                                const sparkMax = Math.max(...cat.monthlyArr, 1);
+                                const sparkW = 80, sparkH = 28;
+                                const sparkPoints = cat.monthlyArr.map((v, i) => `${(i / Math.max(cat.monthlyArr.length - 1, 1)) * sparkW},${sparkH - (v / sparkMax) * sparkH}`).join(' ');
+                                const topOutlier = cat.outliers[0];
+                                return (
+                                    <div key={cat.name} style={{
+                                        padding: '16px', borderRadius: '10px',
+                                        background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)',
+                                    }}>
+                                        <div className="flex-between" style={{ marginBottom: '10px' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: 700 }}>{cat.nameEn}</span>
+                                            <svg width={sparkW} height={sparkH}>
+                                                <polyline points={sparkPoints} fill="none" stroke="var(--accent-primary)" strokeWidth="1.5" />
+                                            </svg>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+                                            <span>Total: <strong>{formatCurrency(cat.total)}</strong></span>
+                                            <span>Avg: <strong>{formatCurrency(cat.avg)}</strong>/mo</span>
+                                        </div>
+                                        {topOutlier && (
+                                            <div style={{ padding: '8px 10px', borderRadius: '8px', background: 'rgba(255,0,85,0.05)', border: '1px solid rgba(255,0,85,0.12)', fontSize: '11px', marginBottom: '10px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-danger)', fontWeight: 600, marginBottom: '3px' }}>
+                                                    <AlertTriangle size={10} /> Top spike
+                                                </div>
+                                                <div style={{ color: 'var(--text-secondary)' }}>
+                                                    {topOutlier.businessName} — <strong>{formatCurrency(topOutlier.amount)}</strong>
+                                                    <span style={{ color: 'var(--text-muted)' }}> (avg txn: {formatCurrency(cat.txnAvg)})</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', borderRadius: '8px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
+                                            <Scissors size={12} color="var(--accent-success)" />
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-success)' }}>
+                                                Save ~{formatCurrency(cat.savingsPotential)}/mo
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 }
