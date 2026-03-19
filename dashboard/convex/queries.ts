@@ -112,3 +112,24 @@ export const getPensionHistory = query({
     return await ctx.db.query("pensionHistory").order("asc").collect();
   },
 });
+
+export const getWatchedTransactions = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("watchedTransactions").collect();
+  },
+});
+
+export const getSpendingGoals = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("spendingGoals").collect();
+  },
+});
+
+export const getActionTasks = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("actionTasks").collect();
+  },
+});

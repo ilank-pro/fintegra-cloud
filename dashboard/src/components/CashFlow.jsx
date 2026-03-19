@@ -12,8 +12,10 @@ import {
     Filler,
 } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
-import { useTrends, useSpending, useTransactions } from '../hooks/useData';
-import { AlertTriangle, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, Scissors } from 'lucide-react';
+import { useTrends, useSpending, useTransactions, useWatchedTransactions, useSpendingGoals, useActionTasks } from '../hooks/useData';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import { AlertTriangle, TrendingUp, TrendingDown, Minus, Scissors, Eye, XCircle, Target, CheckSquare, Square, Trash2, Plus } from 'lucide-react';
 
 ChartJS.register(
     CategoryScale, LinearScale, PointElement, LineElement,
@@ -73,7 +75,24 @@ export default function CashFlow({ selectedMonths }) {
     const [savingsBoost, setSavingsBoost] = useState(2000);
     const [showProjection, setShowProjection] = useState(true);
     const [expandedCategory, setExpandedCategory] = useState(null);
-    const [heatmapCell, setHeatmapCell] = useState(null); // { category, month }
+    const [heatmapCell, setHeatmapCell] = useState(null);
+    const [goalInput, setGoalInput] = useState({});
+    const [taskInput, setTaskInput] = useState('');
+
+    // Convex data + mutations
+    const watchedTxns = useWatchedTransactions() || [];
+    const spendingGoals = useSpendingGoals() || [];
+    const actionTasks = useActionTasks() || [];
+    const addWatch = useMutation(api.mutations.addWatchedTransaction);
+    const removeWatch = useMutation(api.mutations.removeWatchedTransaction);
+    const setGoal = useMutation(api.mutations.setSpendingGoal);
+    const removeGoal = useMutation(api.mutations.removeSpendingGoal);
+    const addTask = useMutation(api.mutations.addActionTask);
+    const toggleTask = useMutation(api.mutations.toggleActionTask);
+    const removeTask = useMutation(api.mutations.removeActionTask);
+
+    const watchedSet = useMemo(() => new Set(watchedTxns.map(w => `${w.businessName}_${w.category}`)), [watchedTxns]);
+    const goalMap = useMemo(() => Object.fromEntries(spendingGoals.map(g => [g.category, g])), [spendingGoals]);
 
     const sorted = useMemo(() => {
         if (!Array.isArray(trendsData)) return [];
@@ -405,6 +424,7 @@ export default function CashFlow({ selectedMonths }) {
                                 <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>Avg/mo</th>
                                 <th style={{ padding: '8px', textAlign: 'center', fontWeight: 600, width: '40px' }}></th>
                                 <th style={{ padding: '8px', textAlign: 'center', fontWeight: 600 }}>Outliers</th>
+                                <th style={{ padding: '8px', textAlign: 'center', fontWeight: 600 }}>Goal</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -443,31 +463,68 @@ export default function CashFlow({ selectedMonths }) {
                                                 <span style={{ color: 'var(--text-muted)' }}>—</span>
                                             )}
                                         </td>
+                                        <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                                            {(() => {
+                                                const goal = goalMap[cat.name];
+                                                if (!goal) return <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>—</span>;
+                                                const lastMonth = cat.monthlyArr[cat.monthlyArr.length - 1] || 0;
+                                                const pct = goal.monthlyTarget > 0 ? (lastMonth / goal.monthlyTarget) * 100 : 0;
+                                                const color = pct <= 90 ? 'var(--accent-success)' : pct <= 100 ? 'var(--accent-warning)' : 'var(--accent-danger)';
+                                                return (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                                        <div style={{ width: '50px', height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.08)' }}>
+                                                            <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', borderRadius: '2px', background: color }} />
+                                                        </div>
+                                                        <span style={{ fontSize: '9px', color }}>{Math.round(pct)}%</span>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </td>
                                     </tr>
                                     {isExpanded && cat.outliers.length > 0 && (
                                         <tr>
-                                            <td colSpan={6} style={{ padding: '0 8px 12px 24px', background: 'rgba(255,255,255,0.01)' }}>
+                                            <td colSpan={7} style={{ padding: '0 8px 12px 24px', background: 'rgba(255,255,255,0.01)' }}>
                                                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px', marginTop: '8px' }}>
                                                     Outlier transactions (above {formatCurrency(cat.outlierThreshold)} threshold):
                                                 </div>
-                                                {cat.outliers.slice(0, 5).map((t, i) => (
-                                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: '11px' }}>
+                                                {cat.outliers.slice(0, 5).map((t, i) => {
+                                                    const isWatched = watchedSet.has(`${t.businessName}_${cat.name}`);
+                                                    return (
+                                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: '11px' }}>
                                                         <span style={{ color: 'var(--text-secondary)' }}>
                                                             <AlertTriangle size={10} color="var(--accent-danger)" style={{ marginRight: '4px', verticalAlign: 'middle' }} />
                                                             {t.date} — {t.businessName}
                                                         </span>
-                                                        <span>
+                                                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                             <strong style={{ color: 'var(--accent-danger)' }}>{formatCurrency(t.amount)}</strong>
-                                                            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>(avg: {formatCurrency(cat.txnAvg)})</span>
+                                                            <span style={{ color: 'var(--text-muted)' }}>(avg: {formatCurrency(cat.txnAvg)})</span>
+                                                            {isWatched ? (
+                                                                <button onClick={(e) => { e.stopPropagation(); const w = watchedTxns.find(w => w.businessName === t.businessName && w.category === cat.name); if (w) removeWatch({ id: w._id }); }}
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--accent-primary)' }} title="Remove from watchlist">
+                                                                    <Eye size={12} />
+                                                                </button>
+                                                            ) : (
+                                                                <span style={{ display: 'flex', gap: '2px' }}>
+                                                                    <button onClick={(e) => { e.stopPropagation(); addWatch({ businessName: t.businessName, category: cat.name, status: 'watch', amount: t.amount }); }}
+                                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-muted)' }} title="Watch">
+                                                                        <Eye size={12} />
+                                                                    </button>
+                                                                    <button onClick={(e) => { e.stopPropagation(); addWatch({ businessName: t.businessName, category: cat.name, status: 'cancel', amount: t.amount }); }}
+                                                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-muted)' }} title="Mark to cancel">
+                                                                        <XCircle size={12} />
+                                                                    </button>
+                                                                </span>
+                                                            )}
                                                         </span>
                                                     </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </td>
                                         </tr>
                                     )}
                                     {isExpanded && cat.outliers.length === 0 && (
                                         <tr>
-                                            <td colSpan={6} style={{ padding: '8px 8px 12px 24px', fontSize: '11px', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.01)' }}>
+                                            <td colSpan={7} style={{ padding: '8px 8px 12px 24px', fontSize: '11px', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.01)' }}>
                                                 No outlier transactions detected. Spending is consistent.
                                             </td>
                                         </tr>
@@ -571,7 +628,7 @@ export default function CashFlow({ selectedMonths }) {
             </div>
             )}
 
-            {/* Section D: Category Cards with Savings Potential */}
+            {/* Section D: Category Cards with Savings Potential + Goals */}
             {(() => {
                 const withSavings = categoryAnalysis.categories.filter(c => c.savingsPotential > 0).sort((a, b) => b.savingsPotential - a.savingsPotential);
                 const totalPotential = withSavings.reduce((s, c) => s + c.savingsPotential, 0);
@@ -587,22 +644,28 @@ export default function CashFlow({ selectedMonths }) {
                                 ~{formatCurrency(totalPotential)}/mo across {withSavings.length} categories
                             </span>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
                             {withSavings.slice(0, 6).map(cat => {
                                 const sparkMax = Math.max(...cat.monthlyArr, 1);
                                 const sparkW = 80, sparkH = 28;
                                 const sparkPoints = cat.monthlyArr.map((v, i) => `${(i / Math.max(cat.monthlyArr.length - 1, 1)) * sparkW},${sparkH - (v / sparkMax) * sparkH}`).join(' ');
                                 const topOutlier = cat.outliers[0];
+                                const goal = goalMap[cat.name];
+                                const watchCount = watchedTxns.filter(w => w.category === cat.name).length;
                                 return (
-                                    <div key={cat.name} style={{
-                                        padding: '16px', borderRadius: '10px',
-                                        background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)',
-                                    }}>
+                                    <div key={cat.name} style={{ padding: '16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)' }}>
                                         <div className="flex-between" style={{ marginBottom: '10px' }}>
                                             <span style={{ fontSize: '13px', fontWeight: 700 }}>{cat.nameEn}</span>
-                                            <svg width={sparkW} height={sparkH}>
-                                                <polyline points={sparkPoints} fill="none" stroke="var(--accent-primary)" strokeWidth="1.5" />
-                                            </svg>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                {watchCount > 0 && (
+                                                    <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '8px', background: 'rgba(0,240,255,0.1)', border: '1px solid rgba(0,240,255,0.2)', color: 'var(--accent-primary)' }}>
+                                                        <Eye size={9} style={{ verticalAlign: 'middle', marginRight: '2px' }} />{watchCount}
+                                                    </span>
+                                                )}
+                                                <svg width={sparkW} height={sparkH}>
+                                                    <polyline points={sparkPoints} fill="none" stroke="var(--accent-primary)" strokeWidth="1.5" />
+                                                </svg>
+                                            </div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
                                             <span>Total: <strong>{formatCurrency(cat.total)}</strong></span>
@@ -619,6 +682,32 @@ export default function CashFlow({ selectedMonths }) {
                                                 </div>
                                             </div>
                                         )}
+                                        {/* Goal setting */}
+                                        <div style={{ padding: '8px 10px', borderRadius: '8px', background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.12)', fontSize: '11px', marginBottom: '10px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-purple)', fontWeight: 600 }}>
+                                                    <Target size={10} /> Goal
+                                                </div>
+                                                {goal ? (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <span style={{ color: 'var(--text-secondary)' }}>{formatCurrency(goal.monthlyTarget)}/mo</span>
+                                                        <button onClick={() => removeGoal({ id: goal._id })} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '1px', color: 'var(--text-muted)' }}>
+                                                            <XCircle size={10} />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <input type="number" placeholder={Math.round(cat.avg)} value={goalInput[cat.name] || ''}
+                                                            onChange={e => setGoalInput(p => ({ ...p, [cat.name]: e.target.value }))}
+                                                            onKeyDown={e => { if (e.key === 'Enter' && goalInput[cat.name]) { setGoal({ category: cat.name, monthlyTarget: Number(goalInput[cat.name]) }); setGoalInput(p => ({ ...p, [cat.name]: '' })); } }}
+                                                            style={{ width: '70px', padding: '3px 6px', borderRadius: '4px', fontSize: '10px', border: '1px solid var(--border-light)', background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit' }}
+                                                        />
+                                                        <button onClick={() => { if (goalInput[cat.name]) { setGoal({ category: cat.name, monthlyTarget: Number(goalInput[cat.name]) }); setGoalInput(p => ({ ...p, [cat.name]: '' })); } }}
+                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '1px', color: 'var(--accent-purple)' }}>Set</button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', borderRadius: '8px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
                                             <Scissors size={12} color="var(--accent-success)" />
                                             <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-success)' }}>
@@ -632,6 +721,78 @@ export default function CashFlow({ selectedMonths }) {
                     </div>
                 );
             })()}
+
+            {/* Section E: Action Tasks */}
+            <div className="glass-panel" style={{ padding: '24px' }}>
+                <div className="flex-between" style={{ marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <CheckSquare size={16} color="var(--accent-primary)" />
+                        <h3 style={{ fontWeight: 600 }}>Action Tasks</h3>
+                    </div>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        {actionTasks.filter(t => t.status === 'done').length}/{actionTasks.length} completed
+                    </span>
+                </div>
+
+                {/* Add task input */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                    <input type="text" placeholder="Add a task (e.g., Cancel subscription to X)..." value={taskInput}
+                        onChange={e => setTaskInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && taskInput.trim()) { addTask({ title: taskInput.trim(), category: 'general' }); setTaskInput(''); } }}
+                        style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', fontSize: '12px', border: '1px solid var(--border-light)', background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit' }}
+                    />
+                    <button onClick={() => { if (taskInput.trim()) { addTask({ title: taskInput.trim(), category: 'general' }); setTaskInput(''); } }}
+                        disabled={!taskInput.trim()}
+                        style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: taskInput.trim() ? 'pointer' : 'not-allowed', fontFamily: 'inherit', border: '1px solid rgba(0,240,255,0.3)', background: 'rgba(0,240,255,0.08)', color: 'var(--accent-primary)', opacity: taskInput.trim() ? 1 : 0.5, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Plus size={12} /> Add
+                    </button>
+                </div>
+
+                {/* Suggested tasks from outliers */}
+                {categoryAnalysis.categories.some(c => c.outliers.length > 0) && actionTasks.length === 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px' }}>Suggested tasks based on your spending:</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {categoryAnalysis.categories
+                                .filter(c => c.outliers.length > 0)
+                                .slice(0, 4)
+                                .map(cat => {
+                                    const top = cat.outliers[0];
+                                    const title = `Review ${formatCurrency(top.amount)} charge from ${top.businessName} (${cat.nameEn})`;
+                                    return (
+                                        <button key={cat.name} onClick={() => addTask({ title, category: cat.name })}
+                                            style={{ padding: '5px 10px', borderRadius: '14px', fontSize: '10px', border: '1px solid rgba(139,92,246,0.2)', background: 'rgba(139,92,246,0.06)', color: 'var(--accent-purple)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                            + {title.slice(0, 50)}{title.length > 50 ? '...' : ''}
+                                        </button>
+                                    );
+                                })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Task list */}
+                {actionTasks.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {actionTasks.sort((a, b) => (a.status === 'done' ? 1 : 0) - (b.status === 'done' ? 1 : 0) || b.createdAt - a.createdAt).map(task => (
+                            <div key={task._id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', borderRadius: '8px', background: task.status === 'done' ? 'rgba(16,185,129,0.04)' : 'rgba(255,255,255,0.02)', border: `1px solid ${task.status === 'done' ? 'rgba(16,185,129,0.12)' : 'var(--border-light)'}` }}>
+                                <button onClick={() => toggleTask({ id: task._id })} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: task.status === 'done' ? 'var(--accent-success)' : 'var(--text-muted)' }}>
+                                    {task.status === 'done' ? <CheckSquare size={16} /> : <Square size={16} />}
+                                </button>
+                                <span style={{ flex: 1, fontSize: '12px', color: task.status === 'done' ? 'var(--text-muted)' : 'var(--text-secondary)', textDecoration: task.status === 'done' ? 'line-through' : 'none' }}>
+                                    {task.title}
+                                </span>
+                                <button onClick={() => removeTask({ id: task._id })} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-muted)' }}>
+                                    <Trash2 size={12} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                        No tasks yet. Add one above or click a suggested task to get started.
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

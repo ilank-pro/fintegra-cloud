@@ -48,3 +48,15 @@ export function usePensionAccounts() {
 export function usePensionHistory() {
   return useQuery(api.queries.getPensionHistory);
 }
+
+export function useWatchedTransactions() {
+  return useQuery(api.queries.getWatchedTransactions);
+}
+
+export function useSpendingGoals() {
+  return useQuery(api.queries.getSpendingGoals);
+}
+
+export function useActionTasks() {
+  return useQuery(api.queries.getActionTasks);
+}

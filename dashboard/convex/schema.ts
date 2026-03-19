@@ -90,6 +90,29 @@ export default defineSchema({
     createdAt: v.number(),
   }),
 
+  // Spending management
+  watchedTransactions: defineTable({
+    businessName: v.string(),
+    category: v.string(),
+    status: v.string(),
+    amount: v.number(),
+    dateAdded: v.string(),
+  }).index("by_category", ["category"]),
+
+  spendingGoals: defineTable({
+    category: v.string(),
+    monthlyTarget: v.number(),
+    createdAt: v.number(),
+  }).index("by_category", ["category"]),
+
+  actionTasks: defineTable({
+    title: v.string(),
+    category: v.string(),
+    status: v.string(),
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+  }).index("by_status", ["status"]),
+
   // System config (session credentials, etc.)
   config: defineTable({
     key: v.string(),

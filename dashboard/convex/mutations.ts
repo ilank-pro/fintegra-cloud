@@ -221,6 +221,61 @@ export const replacePensionAccounts = mutation({
   },
 });
 
+// --- Spending management mutations ---
+
+export const addWatchedTransaction = mutation({
+  args: { businessName: v.string(), category: v.string(), status: v.string(), amount: v.number() },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("watchedTransactions", { ...args, dateAdded: new Date().toISOString().slice(0, 10) });
+  },
+});
+
+export const removeWatchedTransaction = mutation({
+  args: { id: v.id("watchedTransactions") },
+  handler: async (ctx, { id }) => { await ctx.db.delete(id); },
+});
+
+export const setSpendingGoal = mutation({
+  args: { category: v.string(), monthlyTarget: v.number() },
+  handler: async (ctx, { category, monthlyTarget }) => {
+    const existing = await ctx.db.query("spendingGoals").withIndex("by_category", q => q.eq("category", category)).first();
+    if (existing) {
+      await ctx.db.patch(existing._id, { monthlyTarget });
+    } else {
+      await ctx.db.insert("spendingGoals", { category, monthlyTarget, createdAt: Date.now() });
+    }
+  },
+});
+
+export const removeSpendingGoal = mutation({
+  args: { id: v.id("spendingGoals") },
+  handler: async (ctx, { id }) => { await ctx.db.delete(id); },
+});
+
+export const addActionTask = mutation({
+  args: { title: v.string(), category: v.string() },
+  handler: async (ctx, { title, category }) => {
+    await ctx.db.insert("actionTasks", { title, category, status: "todo", createdAt: Date.now() });
+  },
+});
+
+export const toggleActionTask = mutation({
+  args: { id: v.id("actionTasks") },
+  handler: async (ctx, { id }) => {
+    const task = await ctx.db.get(id);
+    if (!task) return;
+    await ctx.db.patch(id, {
+      status: task.status === "todo" ? "done" : "todo",
+      completedAt: task.status === "todo" ? Date.now() : undefined,
+    });
+  },
+});
+
+export const removeActionTask = mutation({
+  args: { id: v.id("actionTasks") },
+  handler: async (ctx, { id }) => { await ctx.db.delete(id); },
+});
+
 export const replacePensionHistory = mutation({
   args: { items: v.any() },
   handler: async (ctx, { items }) => {
