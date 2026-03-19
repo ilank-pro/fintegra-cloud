@@ -593,7 +593,7 @@ export default function Overview({ selectedMonths, availableMonths, pensionOverr
 
             {/* Goals & Tasks */}
             {(spendingGoals.length > 0 || actionTasks.length > 0) && (
-                <div style={{ display: 'flex', gap: '20px' }}>
+                <div style={{ display: 'flex', gap: '20px', marginTop: '24px' }}>
                     {/* Left: Spending Goals */}
                     <div className="glass-panel" style={{ flex: 1, padding: '20px' }}>
                         <div className="flex-between" style={{ marginBottom: '14px' }}>
