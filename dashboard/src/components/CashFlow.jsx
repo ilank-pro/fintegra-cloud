@@ -136,9 +136,11 @@ export default function CashFlow({ selectedMonths }) {
         const expenses = transactionsData.filter(t => !t.isIncome && t.category && t.date);
         if (!expenses.length) return { categories: [], months: [], totalExpenses: 0 };
 
-        // Get all months, sorted, take last 6
+        // Use selected months if available, otherwise last 6
         const allMonths = [...new Set(expenses.map(t => t.date.slice(0, 7)))].sort();
-        const months = allMonths.slice(-6);
+        const months = (selectedMonths && selectedMonths.size > 0)
+            ? allMonths.filter(m => selectedMonths.has(m))
+            : allMonths.slice(-6);
         const monthSet = new Set(months);
 
         // Group by category
@@ -193,7 +195,7 @@ export default function CashFlow({ selectedMonths }) {
         categories.sort((a, b) => b.total - a.total);
         const totalExpenses = categories.reduce((s, c) => s + c.total, 0);
         return { categories: categories.slice(0, 10), months, totalExpenses };
-    }, [transactionsData]);
+    }, [transactionsData, selectedMonths]);
 
     // Cumulative chart derived from sorted + slider
     const cumulativeChartData = (() => {
@@ -630,9 +632,9 @@ export default function CashFlow({ selectedMonths }) {
 
             {/* Section D: Category Cards with Savings Potential + Goals */}
             {(() => {
-                const withSavings = categoryAnalysis.categories.filter(c => c.savingsPotential > 0).sort((a, b) => b.savingsPotential - a.savingsPotential);
-                const totalPotential = withSavings.reduce((s, c) => s + c.savingsPotential, 0);
-                if (!withSavings.length) return null;
+                const allCats = [...categoryAnalysis.categories].sort((a, b) => b.total - a.total);
+                const totalPotential = allCats.reduce((s, c) => s + c.savingsPotential, 0);
+                if (!allCats.length) return null;
                 return (
                     <div className="glass-panel" style={{ padding: '24px' }}>
                         <div className="flex-between" style={{ marginBottom: '16px' }}>
@@ -641,11 +643,11 @@ export default function CashFlow({ selectedMonths }) {
                                 <h3 style={{ fontWeight: 600 }}>Savings Potential</h3>
                             </div>
                             <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent-success)' }}>
-                                ~{formatCurrency(totalPotential)}/mo across {withSavings.length} categories
+                                ~{formatCurrency(totalPotential)}/mo across {allCats.filter(c => c.savingsPotential > 0).length} categories
                             </span>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
-                            {withSavings.slice(0, 6).map(cat => {
+                            {allCats.map(cat => {
                                 const sparkMax = Math.max(...cat.monthlyArr, 1);
                                 const sparkW = 80, sparkH = 28;
                                 const sparkPoints = cat.monthlyArr.map((v, i) => `${(i / Math.max(cat.monthlyArr.length - 1, 1)) * sparkW},${sparkH - (v / sparkMax) * sparkH}`).join(' ');
@@ -671,17 +673,39 @@ export default function CashFlow({ selectedMonths }) {
                                             <span>Total: <strong>{formatCurrency(cat.total)}</strong></span>
                                             <span>Avg: <strong>{formatCurrency(cat.avg)}</strong>/mo</span>
                                         </div>
-                                        {topOutlier && (
+                                        {topOutlier && (() => {
+                                            const isWatched = watchedSet.has(`${topOutlier.businessName}_${cat.name}`);
+                                            return (
                                             <div style={{ padding: '8px 10px', borderRadius: '8px', background: 'rgba(255,0,85,0.05)', border: '1px solid rgba(255,0,85,0.12)', fontSize: '11px', marginBottom: '10px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-danger)', fontWeight: 600, marginBottom: '3px' }}>
-                                                    <AlertTriangle size={10} /> Top spike
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-danger)', fontWeight: 600 }}>
+                                                        <AlertTriangle size={10} /> Top spike
+                                                    </div>
+                                                    {isWatched ? (
+                                                        <button onClick={() => { const w = watchedTxns.find(w => w.businessName === topOutlier.businessName && w.category === cat.name); if (w) removeWatch({ id: w._id }); }}
+                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--accent-primary)' }} title="Remove from watchlist">
+                                                            <Eye size={12} />
+                                                        </button>
+                                                    ) : (
+                                                        <span style={{ display: 'flex', gap: '2px' }}>
+                                                            <button onClick={() => addWatch({ businessName: topOutlier.businessName, category: cat.name, status: 'watch', amount: topOutlier.amount })}
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-muted)' }} title="Watch">
+                                                                <Eye size={12} />
+                                                            </button>
+                                                            <button onClick={() => addWatch({ businessName: topOutlier.businessName, category: cat.name, status: 'cancel', amount: topOutlier.amount })}
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-muted)' }} title="Mark to cancel">
+                                                                <XCircle size={12} />
+                                                            </button>
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div style={{ color: 'var(--text-secondary)' }}>
                                                     {topOutlier.businessName} — <strong>{formatCurrency(topOutlier.amount)}</strong>
                                                     <span style={{ color: 'var(--text-muted)' }}> (avg txn: {formatCurrency(cat.txnAvg)})</span>
                                                 </div>
                                             </div>
-                                        )}
+                                            );
+                                        })()}
                                         {/* Goal setting */}
                                         <div style={{ padding: '8px 10px', borderRadius: '8px', background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.12)', fontSize: '11px', marginBottom: '10px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
@@ -708,10 +732,10 @@ export default function CashFlow({ selectedMonths }) {
                                                 )}
                                             </div>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', borderRadius: '8px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
-                                            <Scissors size={12} color="var(--accent-success)" />
-                                            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-success)' }}>
-                                                Save ~{formatCurrency(cat.savingsPotential)}/mo
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', borderRadius: '8px', background: cat.savingsPotential > 0 ? 'rgba(16,185,129,0.06)' : 'rgba(255,255,255,0.02)', border: cat.savingsPotential > 0 ? '1px solid rgba(16,185,129,0.15)' : '1px solid var(--border-light)' }}>
+                                            <Scissors size={12} color={cat.savingsPotential > 0 ? 'var(--accent-success)' : 'var(--text-muted)'} />
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: cat.savingsPotential > 0 ? 'var(--accent-success)' : 'var(--text-muted)' }}>
+                                                {cat.savingsPotential > 0 ? `Save ~${formatCurrency(cat.savingsPotential)}/mo` : 'Consistent spending'}
                                             </span>
                                         </div>
                                     </div>
