@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { CreditCard, TrendingUp, TrendingDown, DollarSign, PiggyBank, Percent, BarChart3, Flame, Trophy, Zap, Info } from 'lucide-react';
-import { useBalance, useProgress, useTrajectory, useHealthScore } from '../hooks/useData';
+import { CreditCard, TrendingUp, TrendingDown, DollarSign, PiggyBank, Percent, BarChart3, Flame, Trophy, Zap, Info, Target, CheckSquare, Square } from 'lucide-react';
+import { useBalance, useProgress, useTrajectory, useHealthScore, useSpendingGoals, useActionTasks, useTransactions } from '../hooks/useData';
 
 // Hover tooltip component
 // position: "above" (default) | "below"
@@ -120,6 +120,35 @@ export default function Overview({ selectedMonths, availableMonths, pensionOverr
     const progressData = useProgress() || {};
     const trajectoryData = useTrajectory() || {};
     const healthScoreData = useHealthScore() || {};
+    const spendingGoals = useSpendingGoals() || [];
+    const actionTasks = useActionTasks() || [];
+    const transactionsData = useTransactions() || [];
+
+    // Compute current month spending per category for goal progress
+    const categorySpend = useMemo(() => {
+        const currentMonth = selectedMonths && selectedMonths.size > 0
+            ? [...selectedMonths].sort().pop()
+            : new Date().toISOString().slice(0, 7);
+        const map = {};
+        for (const t of transactionsData) {
+            if (t.isIncome || !t.category || !t.date) continue;
+            if (t.date.slice(0, 7) === currentMonth) {
+                map[t.category] = (map[t.category] || 0) + t.amount;
+            }
+        }
+        return map;
+    }, [transactionsData, selectedMonths]);
+
+    const CATEGORY_TRANSLATIONS = {
+        'מזומן': 'Cash', 'העברות': 'Transfers', 'תשלומים': 'Payments',
+        'כלכלה': 'Groceries', 'משכנתא': 'Mortgage', 'אוכל בחוץ': 'Dining Out',
+        'ביטוח': 'Insurance', 'תרומה': 'Donations', 'השקעה וחיסכון': 'Investments',
+        'קניות': 'Shopping', 'כללי': 'General', 'רכב': 'Car',
+        'דיגיטל': 'Digital', 'חשמל': 'Electricity', 'תקשורת': 'Telecom',
+        'פארמה': 'Pharmacy', 'תחבורה ציבורית': 'Public Transport', 'שיק': 'Check',
+        'חינוך': 'Education', 'תיירות': 'Travel', 'בריאות': 'Health',
+        'ביגוד והנעלה': 'Clothing', 'פנאי': 'Leisure', 'עמלות': 'Fees',
+    };
 
     const [mounted, setMounted] = useState(false);
     const [pendingOpen, setPendingOpen] = useState(false);
@@ -562,7 +591,85 @@ export default function Overview({ selectedMonths, availableMonths, pensionOverr
                 ))}
             </div>
 
-            {/* (Health score moved to top of page) */}
+            {/* Goals & Tasks */}
+            {(spendingGoals.length > 0 || actionTasks.length > 0) && (
+                <div style={{ display: 'flex', gap: '20px' }}>
+                    {/* Left: Spending Goals */}
+                    <div className="glass-panel" style={{ flex: 1, padding: '20px' }}>
+                        <div className="flex-between" style={{ marginBottom: '14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Target size={16} color="var(--accent-purple)" />
+                                <h3 style={{ fontWeight: 600, fontSize: '14px' }}>Spending Goals</h3>
+                            </div>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                {spendingGoals.filter(g => (categorySpend[g.category] || 0) <= g.monthlyTarget).length}/{spendingGoals.length} on track
+                            </span>
+                        </div>
+                        {spendingGoals.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {spendingGoals.map(g => {
+                                    const spent = categorySpend[g.category] || 0;
+                                    const pct = g.monthlyTarget > 0 ? (spent / g.monthlyTarget) * 100 : 0;
+                                    const color = pct <= 90 ? 'var(--accent-success)' : pct <= 100 ? 'var(--accent-warning)' : 'var(--accent-danger)';
+                                    const en = CATEGORY_TRANSLATIONS[g.category] || g.category;
+                                    return (
+                                        <div key={g._id}>
+                                            <div className="flex-between" style={{ marginBottom: '4px' }}>
+                                                <span style={{ fontSize: '12px', fontWeight: 600 }}>{en}</span>
+                                                <span style={{ fontSize: '11px', color }}>
+                                                    {formatCurrency(spent)} / {formatCurrency(g.monthlyTarget)}
+                                                </span>
+                                            </div>
+                                            <div style={{ width: '100%', height: '6px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)' }}>
+                                                <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', borderRadius: '3px', background: color, transition: 'width 0.3s' }} />
+                                            </div>
+                                            <div style={{ textAlign: 'right', fontSize: '10px', color, fontWeight: 600, marginTop: '2px' }}>{Math.round(pct)}%</div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '16px' }}>
+                                Set spending goals in the Cash Flow or Spending tab.
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Right: Action Tasks */}
+                    <div className="glass-panel" style={{ flex: 1, padding: '20px' }}>
+                        <div className="flex-between" style={{ marginBottom: '14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <CheckSquare size={16} color="var(--accent-primary)" />
+                                <h3 style={{ fontWeight: 600, fontSize: '14px' }}>Action Tasks</h3>
+                            </div>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                {actionTasks.filter(t => t.status === 'done').length}/{actionTasks.length} completed
+                            </span>
+                        </div>
+                        {actionTasks.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {actionTasks
+                                    .sort((a, b) => (a.status === 'done' ? 1 : 0) - (b.status === 'done' ? 1 : 0) || b.createdAt - a.createdAt)
+                                    .map(task => (
+                                    <div key={task._id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', borderRadius: '6px', background: task.status === 'done' ? 'rgba(16,185,129,0.04)' : 'transparent' }}>
+                                        {task.status === 'done'
+                                            ? <CheckSquare size={14} color="var(--accent-success)" />
+                                            : <Square size={14} color="var(--text-muted)" />
+                                        }
+                                        <span style={{ fontSize: '12px', color: task.status === 'done' ? 'var(--text-muted)' : 'var(--text-secondary)', textDecoration: task.status === 'done' ? 'line-through' : 'none', flex: 1 }}>
+                                            {task.title}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '16px' }}>
+                                Create action tasks in the Cash Flow tab.
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
