@@ -9,8 +9,11 @@ import {
     Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { useSpending, useTransactions } from '../hooks/useData';
+import { useSpending, useTransactions, useSpendingGoals } from '../hooks/useData';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { getBudgetMonth } from '../utils/budgetMonth';
+import { Target, XCircle } from 'lucide-react';
 import HeatmapCalendar from './HeatmapCalendar';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -58,6 +61,11 @@ export default function SpendingBreakdown({ selectedMonths, onCategoryClick }) {
     const _transactionsData = useTransactions();
     const spendingData = _spendingData || [];
     const transactionsData = _transactionsData || [];
+    const spendingGoals = useSpendingGoals() || [];
+    const setGoalMutation = useMutation(api.mutations.setSpendingGoal);
+    const removeGoalMutation = useMutation(api.mutations.removeSpendingGoal);
+    const [goalInput, setGoalInput] = useState({});
+    const goalMap = useMemo(() => Object.fromEntries(spendingGoals.map(g => [g.category, g])), [spendingGoals]);
 
     const { categories, total } = useMemo(() => {
         // Check if we have transaction data for the selected months
@@ -93,6 +101,7 @@ export default function SpendingBreakdown({ selectedMonths, onCategoryClick }) {
         return { categories: [], total: 0 };
     }, [selectedMonths]);
 
+    const numMonths = selectedMonths && selectedMonths.size > 0 ? selectedMonths.size : 1;
     const top12 = categories.slice(0, 12);
 
     const chartData = {
@@ -167,41 +176,76 @@ export default function SpendingBreakdown({ selectedMonths, onCategoryClick }) {
                 <div className="category-grid">
                     {categories.map((cat, i) => {
                         const pct = total > 0 ? ((cat.total / total) * 100).toFixed(1) : 0;
-                        const accentColor = i < 5
-                            ? 'var(--accent-danger)'
-                            : i < 10
-                                ? 'var(--accent-warning)'
-                                : 'var(--text-muted)';
                         const en = CATEGORY_TRANSLATIONS[cat.name] || cat.name;
+                        const goal = goalMap[cat.name];
+                        const monthlyAvg = cat.total / numMonths;
+                        const goalPct = goal ? (monthlyAvg / goal.monthlyTarget) * 100 : 0;
+                        const goalColor = goal
+                            ? goalPct <= 90 ? 'var(--accent-success)' : goalPct <= 100 ? 'var(--accent-warning)' : 'var(--accent-danger)'
+                            : 'var(--text-muted)';
 
                         return (
-                            <div key={cat.name} className="category-card" onClick={() => onCategoryClick?.(cat.name)} style={{ cursor: onCategoryClick ? 'pointer' : 'default' }}>
-                                <div className="flex-between" style={{ marginBottom: '8px' }}>
-                                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                        {en}
-                                    </span>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                                        {cat.name}
-                                    </span>
+                            <div key={cat.name} className="category-card" style={{ cursor: onCategoryClick ? 'pointer' : 'default' }}>
+                                <div onClick={() => onCategoryClick?.(cat.name)}>
+                                    <div className="flex-between" style={{ marginBottom: '8px' }}>
+                                        <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                            {en}
+                                        </span>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                            {cat.name}
+                                        </span>
+                                    </div>
+                                    <div className="flex-between">
+                                        <span style={{ fontSize: '16px', fontWeight: 700, color: goal ? goalColor : (i < 5 ? 'var(--accent-danger)' : i < 10 ? 'var(--accent-warning)' : 'var(--text-muted)') }}>
+                                            {formatCurrency(cat.total)}
+                                        </span>
+                                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                            {cat.count} txns · {pct}%
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className="flex-between">
-                                    <span style={{ fontSize: '16px', fontWeight: 700, color: accentColor }}>
-                                        {formatCurrency(cat.total)}
-                                    </span>
-                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                        {cat.count} txns · {pct}%
-                                    </span>
-                                </div>
-                                <div className="progress-bar-track" style={{ marginTop: '10px' }}>
-                                    <div
-                                        className="progress-bar-fill"
-                                        style={{
-                                            width: `${pct}%`,
-                                            background: accentColor,
-                                            opacity: 0.7,
-                                        }}
-                                    />
-                                </div>
+
+                                {/* Goal progress or set goal */}
+                                {goal ? (
+                                    <div style={{ marginTop: '10px' }}>
+                                        <div className="flex-between" style={{ marginBottom: '4px' }}>
+                                            <span style={{ fontSize: '10px', color: goalColor, fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                                <Target size={10} />
+                                                {formatCurrency(monthlyAvg)}/mo of {formatCurrency(goal.monthlyTarget)} goal
+                                            </span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <span style={{ fontSize: '10px', fontWeight: 700, color: goalColor }}>{Math.round(goalPct)}%</span>
+                                                <button onClick={(e) => { e.stopPropagation(); removeGoalMutation({ id: goal._id }); }}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '1px', color: 'var(--text-muted)' }} title="Remove goal">
+                                                    <XCircle size={10} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="progress-bar-track">
+                                            <div className="progress-bar-fill" style={{ width: `${Math.min(goalPct, 100)}%`, background: goalColor, opacity: 0.8 }} />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ marginTop: '10px' }}>
+                                        <div className="progress-bar-track" style={{ marginBottom: '6px' }}>
+                                            <div className="progress-bar-fill" style={{ width: `${pct}%`, background: i < 5 ? 'var(--accent-danger)' : i < 10 ? 'var(--accent-warning)' : 'var(--text-muted)', opacity: 0.7 }} />
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} onClick={e => e.stopPropagation()}>
+                                            <Target size={10} color="var(--text-muted)" />
+                                            <input type="number" placeholder={`${Math.round(monthlyAvg)}`}
+                                                value={goalInput[cat.name] || ''}
+                                                onChange={e => setGoalInput(p => ({ ...p, [cat.name]: e.target.value }))}
+                                                onKeyDown={e => { if (e.key === 'Enter' && goalInput[cat.name]) { setGoalMutation({ category: cat.name, monthlyTarget: Number(goalInput[cat.name]) }); setGoalInput(p => ({ ...p, [cat.name]: '' })); } }}
+                                                style={{ width: '65px', padding: '2px 5px', borderRadius: '4px', fontSize: '10px', border: '1px solid var(--border-light)', background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit' }}
+                                            />
+                                            <button onClick={() => { if (goalInput[cat.name]) { setGoalMutation({ category: cat.name, monthlyTarget: Number(goalInput[cat.name]) }); setGoalInput(p => ({ ...p, [cat.name]: '' })); } }}
+                                                disabled={!goalInput[cat.name]}
+                                                style={{ fontSize: '10px', background: 'none', border: 'none', cursor: goalInput[cat.name] ? 'pointer' : 'default', color: goalInput[cat.name] ? 'var(--accent-purple)' : 'var(--text-muted)', fontFamily: 'inherit', fontWeight: 600 }}>
+                                                Set goal
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
