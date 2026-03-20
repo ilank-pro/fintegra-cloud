@@ -505,7 +505,41 @@ export default function Advisor({ aiReport, setAiReport, chatMessages, setChatMe
     };
 
     const handleSavePdf = () => {
+        const saved = [];
+        const els = document.querySelectorAll('.dashboard-layout, .main-content, .content-area, .print-report, .print-report *, .glass-panel');
+        els.forEach(el => {
+            saved.push({
+                el,
+                maxHeight: el.style.maxHeight,
+                overflow: el.style.overflow,
+                overflowY: el.style.overflowY,
+                height: el.style.height,
+            });
+            el.style.maxHeight = 'none';
+            el.style.overflow = 'visible';
+            el.style.overflowY = 'visible';
+            el.style.height = 'auto';
+        });
+
+        const reportEl = document.querySelector('.print-report');
+        const flexParent = reportEl?.parentElement;
+        let flexParentSaved;
+        if (flexParent) {
+            flexParentSaved = { display: flexParent.style.display };
+            flexParent.style.display = 'block';
+        }
+
         window.print();
+
+        saved.forEach(({ el, maxHeight, overflow, overflowY, height }) => {
+            el.style.maxHeight = maxHeight;
+            el.style.overflow = overflow;
+            el.style.overflowY = overflowY;
+            el.style.height = height;
+        });
+        if (flexParent && flexParentSaved) {
+            flexParent.style.display = flexParentSaved.display;
+        }
     };
 
     const handleEmail = () => {

@@ -593,14 +593,14 @@ a {
   /* Layout reset */
   .dashboard-layout { display: block; padding: 0; height: auto; overflow: visible; }
   .main-content { padding: 0 20px; overflow: visible; height: auto; }
-  .content-area { padding: 0; height: auto; }
+  .content-area { padding: 0; height: auto; overflow: visible !important; }
 
   /* Glass panels — clean borders for print */
   .glass-panel {
     background: #fff !important; border: 1px solid #e2e8f0 !important;
     box-shadow: none !important; backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important; break-inside: avoid;
-    transform: none !important;
+    overflow: visible !important; transform: none !important;
   }
   .glass-panel::before { display: none !important; }
   .glass-panel:hover { transform: none !important; box-shadow: none !important; }
@@ -608,7 +608,7 @@ a {
   h2, h3, h4 { color: #1a1a2e !important; }
 
   /* Print report container — preserve colored visuals */
-  .print-report { padding: 0; }
+  .print-report { padding: 0; max-height: none !important; overflow: visible !important; height: auto !important; flex: 1 1 100% !important; }
   .print-report .print-title {
     display: block !important; font-size: 24px; font-weight: 700; color: #1a1a2e;
     margin-bottom: 8px; padding-bottom: 8px; border-bottom: 3px solid #3b82f6;
@@ -633,4 +633,11 @@ a {
 
   /* Page breaks */
   .print-report > div { break-inside: avoid; margin-bottom: 12px; }
+
+  /* Nuclear override: force all containers to expand for print */
+  body.printing * {
+    max-height: none !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
 }
