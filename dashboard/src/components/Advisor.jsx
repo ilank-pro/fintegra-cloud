@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { AlertTriangle, CheckCircle2, AlertCircle, Sparkles, Key, ChevronDown, ChevronUp, RefreshCw, Download, Mail, PiggyBank, Shield, Send, MessageCircle } from 'lucide-react';
-import { useTrends, useBalance, useSpending, useProgress, useTrajectory, useHealthScore, useIncome, usePensionAccounts } from '../hooks/useData';
+import { useTrends, useBalance, useSpending, useProgress, useTrajectory, useHealthScore, useIncome, usePensionAccounts, useTransactions } from '../hooks/useData';
 
 const formatCurrency = (val) => {
     if (!val && val !== 0) return '₪0';
@@ -264,9 +264,11 @@ function runRules({ trendsData, spendingData, progressData, trajectoryData, heal
 //  Build data summary for AI prompt
 // ═══════════════════════════════════════════════════
 
-function buildDataSummary({ trendsData, spendingData, balanceData, trajectoryData, healthScoreData, progressData, pensionData }) {
+function buildDataSummary({ trendsData, spendingData, balanceData, trajectoryData, healthScoreData, progressData, pensionData, incomeData, transactionsData }) {
     const trends = Array.isArray(trendsData) ? trendsData : [];
     const spending = Array.isArray(spendingData) ? spendingData : [];
+    const income = Array.isArray(incomeData) ? incomeData : [];
+    const transactions = Array.isArray(transactionsData) ? transactionsData : [];
     const balances = balanceData?.balances || [];
     const savings = balanceData?.financialSummary?.savingsAccounts || [];
     const securities = balanceData?.financialSummary?.securities || [];
@@ -304,6 +306,21 @@ function buildDataSummary({ trendsData, spendingData, balanceData, trajectoryDat
             monthlyDeposit: a.monthlyDeposit,
             monthlyPension: a.monthlyPension,
         })),
+        incomeBreakdown: income.map(i => ({
+            date: i.date, amount: i.amount, source: i.businessName, category: i.category,
+        })),
+        transactionsByMerchant: Object.values(
+            transactions.reduce((acc, t) => {
+                if (t.isIncome) return acc;
+                const key = t.businessName || 'Unknown';
+                if (!acc[key]) acc[key] = { merchant: key, category: CATEGORY_TRANSLATIONS[t.category] || t.category, total: 0, count: 0, months: {} };
+                acc[key].total += t.amount;
+                acc[key].count += 1;
+                const mo = t.date?.slice(0, 7);
+                if (mo) acc[key].months[mo] = (acc[key].months[mo] || 0) + Math.round(t.amount);
+                return acc;
+            }, {})
+        ).sort((a, b) => b.total - a.total).slice(0, 50).map(m => ({ ...m, total: Math.round(m.total) })),
     };
 }
 
@@ -331,8 +348,9 @@ export default function Advisor({ aiReport, setAiReport, chatMessages, setChatMe
     const healthScoreData = useHealthScore() || {};
     const incomeData = useIncome() || [];
     const pensionData = usePensionAccounts() || [];
+    const transactionsData = useTransactions() || [];
 
-    const dataBundle = { trendsData, balanceData, spendingData, progressData, trajectoryData, healthScoreData, incomeData, pensionData };
+    const dataBundle = { trendsData, balanceData, spendingData, progressData, trajectoryData, healthScoreData, incomeData, pensionData, transactionsData };
     const findings = useMemo(() => runRules(dataBundle), [trendsData, balanceData, spendingData, progressData, trajectoryData, healthScoreData, incomeData, pensionData]);
     const [expandedFindings, setExpandedFindings] = useState(new Set());
     const [apiKey, setApiKey] = useState(() => localStorage.getItem('fintegra-anthropic-key') || '');
