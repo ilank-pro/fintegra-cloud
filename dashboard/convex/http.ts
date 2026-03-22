@@ -241,13 +241,15 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanation outside the JSON.
 
 Include 3-4 keyMetrics, 4-5 topFindings, exactly 5 improvementPlan steps, 4-6 categoryTargets, 3-5 riskMatrix items, 2-4 savingsInsights highlights, 2-4 pensionInsights highlights, 3-5 pensionRecommendations, and 5-7 monthlyChecklist items. The client is 53 years old with retirement target age 63.
 
-IMPORTANT: The transactionsByMerchant data includes rich metadata for each merchant:
-- "expense": the true spending category (e.g. "Housing" not "Check") — always prefer this over the generic category
+IMPORTANT — Transaction Metadata Rules:
+The transactionsByMerchant data includes rich metadata for each merchant:
+- "expense": the TRUE spending category (e.g. "Housing") — this is DEFINITIVE, always use it
 - "frequency": how often this expense recurs ("monthly", "bi-monthly", etc.)
-- "placement": "fixed" means it's a committed recurring expense vs discretionary
+- "placement": "fixed" means committed recurring expense, not discretionary
 - "accountNumber": the bank account or recipient account number
 - "installment": payment progress like "3/12"
-Use these fields to provide specific, accurate analysis. For example, a check payment with expense "Housing" and frequency "bi-monthly" is a rental/housing payment, not a mysterious check.`;
+
+CRITICAL: When a merchant has category "Housing" or any other identified expense category, it is a KNOWN, IDENTIFIED expense. Do NOT call it "mysterious", "unknown", "unsolved", or suggest investigating it. A check payment categorized as "Housing" with frequency "bi-monthly" is simply a bi-monthly housing/rent payment — state it as a known fixed housing commitment. Even if previous reports called something "mysterious", if the current data now shows an identified category, treat it as resolved and identified. Never use the word "mystery" for categorized expenses.`;
 
       const userMessage = `Here is the client's financial data and automated findings:
 

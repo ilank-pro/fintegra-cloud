@@ -291,6 +291,14 @@ export const saveAdvisorReport = mutation({
   },
 });
 
+export const clearAdvisorReports = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("advisorReports").collect();
+    for (const doc of all) await ctx.db.delete(doc._id);
+  },
+});
+
 export const replacePensionHistory = mutation({
   args: { items: v.any() },
   handler: async (ctx, { items }) => {
