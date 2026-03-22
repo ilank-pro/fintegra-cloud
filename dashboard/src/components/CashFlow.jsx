@@ -36,7 +36,21 @@ const CATEGORY_TRANSLATIONS = {
     'פארמה': 'Pharmacy', 'תחבורה ציבורית': 'Public Transport', 'שיק': 'Check',
     'חינוך': 'Education', 'תיירות': 'Travel', 'בריאות': 'Health',
     'ביגוד והנעלה': 'Clothing', 'פנאי': 'Leisure', 'עמלות': 'Fees',
+    'ארנונה': 'Property Tax', 'דיור': 'Housing',
 };
+
+const resolveCategory = (t) => t.expense || t.category;
+
+const formatFrequency = (interval) => {
+    if (!interval) return null;
+    if (interval === 1) return 'Monthly';
+    if (interval === 2) return 'Bi-monthly';
+    return `Every ${interval}mo`;
+};
+
+const metaBadge = (bg, color, text) => (
+    <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: '6px', fontSize: '10px', fontWeight: 600, background: bg, color, marginLeft: '6px', verticalAlign: 'middle' }}>{text}</span>
+);
 
 
 const tooltipDefaults = {
@@ -133,7 +147,7 @@ export default function CashFlow({ selectedMonths }) {
 
     // Category spending analysis from transaction data
     const categoryAnalysis = useMemo(() => {
-        const expenses = transactionsData.filter(t => !t.isIncome && t.category && t.date);
+        const expenses = transactionsData.filter(t => !t.isIncome && (t.category || t.expense) && t.date);
         if (!expenses.length) return { categories: [], months: [], totalExpenses: 0 };
 
         // Use selected months if available, otherwise last 6
@@ -148,10 +162,13 @@ export default function CashFlow({ selectedMonths }) {
         for (const t of expenses) {
             const m = t.date.slice(0, 7);
             if (!monthSet.has(m)) continue;
-            const cat = t.category;
-            if (!catMap[cat]) catMap[cat] = { name: cat, nameEn: CATEGORY_TRANSLATIONS[cat] || cat, transactions: [], monthlyTotals: {} };
+            const cat = resolveCategory(t);
+            if (!catMap[cat]) catMap[cat] = { name: cat, nameEn: CATEGORY_TRANSLATIONS[cat] || cat, transactions: [], monthlyTotals: {}, fixedCount: 0, recurringCount: 0, installmentCount: 0, dominantFreq: null };
             catMap[cat].transactions.push(t);
             catMap[cat].monthlyTotals[m] = (catMap[cat].monthlyTotals[m] || 0) + t.amount;
+            if (t.placement === 'fixed') catMap[cat].fixedCount += 1;
+            if (t.monthsInterval) { catMap[cat].recurringCount += 1; catMap[cat].dominantFreq = t.monthsInterval; }
+            if (t.isInstallment) catMap[cat].installmentCount += 1;
         }
 
         // Compute stats per category
@@ -445,7 +462,11 @@ export default function CashFlow({ selectedMonths }) {
                                         style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}
                                         className="hover-row"
                                     >
-                                        <td style={{ padding: '10px 8px', fontWeight: 600 }}>{cat.nameEn}</td>
+                                        <td style={{ padding: '10px 8px', fontWeight: 600 }}>
+                                            {cat.nameEn}
+                                            {cat.fixedCount > 0 && cat.fixedCount >= cat.txnCount * 0.5 && metaBadge('rgba(139,92,246,0.12)', 'var(--accent-purple)', 'Fixed')}
+                                            {cat.dominantFreq && metaBadge('rgba(59,130,246,0.12)', 'var(--accent-primary)', formatFrequency(cat.dominantFreq))}
+                                        </td>
                                         <td style={{ padding: '10px 8px', textAlign: 'center' }}>
                                             <svg width={sparkW} height={sparkH} style={{ verticalAlign: 'middle' }}>
                                                 <polyline points={sparkPoints} fill="none" stroke="var(--accent-primary)" strokeWidth="1.5" />
@@ -606,7 +627,11 @@ export default function CashFlow({ selectedMonths }) {
                                                     </div>
                                                     {cellTxns.slice(0, 8).map((t, i) => (
                                                         <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '11px', borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                                                            <span style={{ color: 'var(--text-secondary)' }}>{t.date} — {t.businessName}</span>
+                                                            <span style={{ color: 'var(--text-secondary)' }}>
+                                                                {t.date} — {t.businessName}
+                                                                {t.monthsInterval && metaBadge('rgba(59,130,246,0.12)', 'var(--accent-primary)', formatFrequency(t.monthsInterval))}
+                                                                {t.placement === 'fixed' && metaBadge('rgba(139,92,246,0.12)', 'var(--accent-purple)', 'Fixed')}
+                                                            </span>
                                                             <span style={{ fontWeight: 600, color: t.amount > cat.outlierThreshold ? 'var(--accent-danger)' : 'var(--text-primary)' }}>
                                                                 {formatCurrency(t.amount)}
                                                                 {t.amount > cat.outlierThreshold && <AlertTriangle size={9} style={{ marginLeft: '3px', verticalAlign: 'middle' }} color="var(--accent-danger)" />}
@@ -657,7 +682,11 @@ export default function CashFlow({ selectedMonths }) {
                                 return (
                                     <div key={cat.name} style={{ padding: '16px', borderRadius: '10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-light)' }}>
                                         <div className="flex-between" style={{ marginBottom: '10px' }}>
-                                            <span style={{ fontSize: '13px', fontWeight: 700 }}>{cat.nameEn}</span>
+                                            <span style={{ fontSize: '13px', fontWeight: 700 }}>
+                                                {cat.nameEn}
+                                                {cat.fixedCount > 0 && cat.fixedCount >= cat.txnCount * 0.5 && metaBadge('rgba(139,92,246,0.12)', 'var(--accent-purple)', 'Fixed')}
+                                                {cat.dominantFreq && metaBadge('rgba(59,130,246,0.12)', 'var(--accent-primary)', formatFrequency(cat.dominantFreq))}
+                                            </span>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 {watchCount > 0 && (
                                                     <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '8px', background: 'rgba(0,240,255,0.1)', border: '1px solid rgba(0,240,255,0.2)', color: 'var(--accent-primary)' }}>
