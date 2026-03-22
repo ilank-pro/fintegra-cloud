@@ -276,6 +276,13 @@ export const removeActionTask = mutation({
   handler: async (ctx, { id }) => { await ctx.db.delete(id); },
 });
 
+export const saveAdvisorReport = mutation({
+  args: { report: v.any(), metricsSnapshot: v.any() },
+  handler: async (ctx, { report, metricsSnapshot }) => {
+    await ctx.db.insert("advisorReports", { report, metricsSnapshot, createdAt: Date.now() });
+  },
+});
+
 export const replacePensionHistory = mutation({
   args: { items: v.any() },
   handler: async (ctx, { items }) => {

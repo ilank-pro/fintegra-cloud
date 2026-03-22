@@ -49,6 +49,10 @@ export function usePensionHistory() {
   return useQuery(api.queries.getPensionHistory);
 }
 
+export function useAdvisorHistory() {
+  return useQuery(api.queries.getAdvisorHistory);
+}
+
 export function useWatchedTransactions() {
   return useQuery(api.queries.getWatchedTransactions);
 }

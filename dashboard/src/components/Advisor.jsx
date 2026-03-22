@@ -1,6 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { AlertTriangle, CheckCircle2, AlertCircle, Sparkles, Key, ChevronDown, ChevronUp, RefreshCw, Download, Mail, PiggyBank, Shield, Send, MessageCircle } from 'lucide-react';
-import { useTrends, useBalance, useSpending, useProgress, useTrajectory, useHealthScore, useIncome, usePensionAccounts, useTransactions } from '../hooks/useData';
+import { useTrends, useBalance, useSpending, useProgress, useTrajectory, useHealthScore, useIncome, usePensionAccounts, useTransactions, useAdvisorHistory } from '../hooks/useData';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 const formatCurrency = (val) => {
     if (!val && val !== 0) return '₪0';
@@ -324,6 +326,19 @@ function buildDataSummary({ trendsData, spendingData, balanceData, trajectoryDat
     };
 }
 
+function buildMetricsSnapshot(dataSummary) {
+    return {
+        date: new Date().toISOString().slice(0, 10),
+        totalBalance: dataSummary.bankBalances?.reduce((s, b) => s + b.balance, 0) || 0,
+        totalSavings: dataSummary.totalSavings || 0,
+        topCategories: dataSummary.topSpendingCategories?.slice(0, 5) || [],
+        compositeScore: dataSummary.compositeScore || null,
+        grade: dataSummary.grade || null,
+        monthlyNet: dataSummary.monthlyTrends?.slice(-1)[0]?.net || null,
+        pensionTotal: dataSummary.pensionAccounts?.reduce((s, a) => s + a.currentBalance, 0) || 0,
+    };
+}
+
 // ═══════════════════════════════════════════════════
 //  Severity styling
 // ═══════════════════════════════════════════════════
@@ -349,6 +364,8 @@ export default function Advisor({ aiReport, setAiReport, chatMessages, setChatMe
     const incomeData = useIncome() || [];
     const pensionData = usePensionAccounts() || [];
     const transactionsData = useTransactions() || [];
+    const advisorHistory = useAdvisorHistory() || [];
+    const saveAdvisorReport = useMutation(api.mutations.saveAdvisorReport);
 
     const dataBundle = { trendsData, balanceData, spendingData, progressData, trajectoryData, healthScoreData, incomeData, pensionData, transactionsData };
     const findings = useMemo(() => runRules(dataBundle), [trendsData, balanceData, spendingData, progressData, trajectoryData, healthScoreData, incomeData, pensionData]);
@@ -426,13 +443,24 @@ export default function Advisor({ aiReport, setAiReport, chatMessages, setChatMe
         setAiError(null);
         try {
             const siteUrl = import.meta.env.VITE_CONVEX_SITE_URL || import.meta.env.VITE_CONVEX_URL?.replace('.cloud', '.site') || '';
+            const dataSummary = buildDataSummary(dataBundle);
+
+            // Build history context from previous reports
+            const previousReport = advisorHistory.length > 0 ? advisorHistory[0].report : null;
+            const metricsHistory = advisorHistory
+                .filter(h => h.metricsSnapshot)
+                .map(h => h.metricsSnapshot)
+                .reverse();
+
             const res = await fetch(`${siteUrl}/advisor`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     apiKey,
                     findings: findings.map(f => ({ category: f.category, severity: f.severity, title: f.title, finding: f.finding })),
-                    dataSummary: buildDataSummary(dataBundle),
+                    dataSummary,
+                    previousReport,
+                    metricsHistory,
                 }),
             });
             const data = await res.json();
@@ -445,6 +473,10 @@ export default function Advisor({ aiReport, setAiReport, chatMessages, setChatMe
                     const jsonStr = jsonMatch ? jsonMatch[1].trim() : reportText.trim();
                     const parsed = JSON.parse(jsonStr);
                     setAiReport(parsed);
+
+                    // Save report + metrics snapshot to Convex
+                    const snapshot = buildMetricsSnapshot(dataSummary);
+                    saveAdvisorReport({ report: parsed, metricsSnapshot: snapshot }).catch(() => {});
                 } catch {
                     // Fallback: store raw text if JSON parsing fails
                     setAiReport({ _raw: data.report });

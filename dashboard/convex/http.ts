@@ -179,13 +179,25 @@ http.route({
   method: "POST",
   handler: httpAction(async (_ctx, request) => {
     try {
-      const { apiKey, findings, dataSummary } = await request.json();
+      const { apiKey, findings, dataSummary, previousReport, metricsHistory } = await request.json();
 
       if (!apiKey) {
         return corsResponse({ ok: false, error: "API key required" }, 400);
       }
 
       const systemPrompt = `You are a professional Israeli financial advisor. Analyze the client's financial data and return a structured JSON report. Be direct, use specific numbers (ILS ₪), and provide actionable recommendations.
+
+${previousReport ? `## Previous Report Context
+You previously provided a report to this client. Compare the current data to your previous analysis. Note what has changed, improved, or worsened. Reference your prior recommendations and whether the client appears to have acted on them. Mention specific changes in the executiveSummary (e.g. "Since our last review, your savings rate improved from X to Y").
+
+Previous report executive summary: ${previousReport.executiveSummary || "N/A"}
+Previous key findings: ${(previousReport.topFindings || []).map((f: any) => f.title).join(", ") || "N/A"}
+Previous improvement plan: ${(previousReport.improvementPlan || []).map((s: any) => s.title).join(", ") || "N/A"}
+Previous overall risk: ${previousReport.overallRisk || "N/A"}` : ""}
+
+${metricsHistory?.length > 0 ? `## Metrics History (oldest to newest)
+Track these metrics over time and identify trends in your analysis:
+${JSON.stringify(metricsHistory, null, 2)}` : ""}
 
 IMPORTANT: Return ONLY valid JSON, no markdown, no explanation outside the JSON. Use this exact schema:
 

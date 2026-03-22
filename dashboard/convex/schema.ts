@@ -87,8 +87,9 @@ export default defineSchema({
 
   advisorReports: defineTable({
     report: v.any(),
+    metricsSnapshot: v.any(),
     createdAt: v.number(),
-  }),
+  }).index("by_date", ["createdAt"]),
 
   // Spending management
   watchedTransactions: defineTable({

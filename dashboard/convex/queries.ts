@@ -113,6 +113,13 @@ export const getPensionHistory = query({
   },
 });
 
+export const getAdvisorHistory = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("advisorReports").order("desc").take(5);
+  },
+});
+
 export const getWatchedTransactions = query({
   args: {},
   handler: async (ctx) => {
