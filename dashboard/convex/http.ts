@@ -239,7 +239,15 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanation outside the JSON.
   "longTermOutlook": "1-2 paragraph forward-looking narrative about their financial trajectory and what achieving the plan would mean"
 }
 
-Include 3-4 keyMetrics, 4-5 topFindings, exactly 5 improvementPlan steps, 4-6 categoryTargets, 3-5 riskMatrix items, 2-4 savingsInsights highlights, 2-4 pensionInsights highlights, 3-5 pensionRecommendations, and 5-7 monthlyChecklist items. The client is 53 years old with retirement target age 63.`;
+Include 3-4 keyMetrics, 4-5 topFindings, exactly 5 improvementPlan steps, 4-6 categoryTargets, 3-5 riskMatrix items, 2-4 savingsInsights highlights, 2-4 pensionInsights highlights, 3-5 pensionRecommendations, and 5-7 monthlyChecklist items. The client is 53 years old with retirement target age 63.
+
+IMPORTANT: The transactionsByMerchant data includes rich metadata for each merchant:
+- "expense": the true spending category (e.g. "Housing" not "Check") — always prefer this over the generic category
+- "frequency": how often this expense recurs ("monthly", "bi-monthly", etc.)
+- "placement": "fixed" means it's a committed recurring expense vs discretionary
+- "accountNumber": the bank account or recipient account number
+- "installment": payment progress like "3/12"
+Use these fields to provide specific, accurate analysis. For example, a check payment with expense "Housing" and frequency "bi-monthly" is a rental/housing payment, not a mysterious check.`;
 
       const userMessage = `Here is the client's financial data and automated findings:
 

@@ -311,11 +311,19 @@ function buildDataSummary({ trendsData, spendingData, balanceData, trajectoryDat
         incomeBreakdown: income.map(i => ({
             date: i.date, amount: i.amount, source: i.businessName, category: i.category,
         })),
-        transactionsByMerchant: Object.values(
+        transactionsByMerchant: (() => {
+            // Build merchant → expense map for category inference
+            const merchantExpenseMap = {};
+            for (const t of transactions) {
+                if (t.expense && t.businessName) merchantExpenseMap[t.businessName] = t.expense;
+            }
+            const resolveWithMap = (t) => t.expense || merchantExpenseMap[t.businessName] || t.category;
+            return Object.values(
             transactions.reduce((acc, t) => {
                 if (t.isIncome) return acc;
                 const key = t.businessName || 'Unknown';
-                if (!acc[key]) acc[key] = { merchant: key, category: CATEGORY_TRANSLATIONS[t.category] || t.category, total: 0, count: 0, months: {} };
+                const resolvedCat = resolveWithMap(t);
+                if (!acc[key]) acc[key] = { merchant: key, category: CATEGORY_TRANSLATIONS[resolvedCat] || resolvedCat, total: 0, count: 0, months: {} };
                 acc[key].total += t.amount;
                 acc[key].count += 1;
                 const mo = t.date?.slice(0, 7);
@@ -328,7 +336,8 @@ function buildDataSummary({ trendsData, spendingData, balanceData, trajectoryDat
                 if (t.isInstallment && t.totalPayments) acc[key].installment = `${t.paymentNumber || '?'}/${t.totalPayments}`;
                 return acc;
             }, {})
-        ).sort((a, b) => b.total - a.total).slice(0, 50).map(m => ({ ...m, total: Math.round(m.total) })),
+        ).sort((a, b) => b.total - a.total).slice(0, 50).map(m => ({ ...m, total: Math.round(m.total) }));
+        })(),
     };
 }
 
