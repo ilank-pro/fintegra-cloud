@@ -82,9 +82,16 @@ export default function SpendingBreakdown({ selectedMonths, onCategoryClick }) {
                 const m = getBudgetMonth(t);
                 return m && selectedMonths.has(m) && !t.isIncome;
             });
+            // Build merchant → expense map from transactions with envelope data
+            const merchantExpenseMap = {};
+            for (const t of filtered) {
+                if (t.expense && t.businessName) merchantExpenseMap[t.businessName] = t.expense;
+            }
+            const resolveWithMap = (t) => t.expense || merchantExpenseMap[t.businessName] || t.category;
+
             const catMap = {};
             for (const t of filtered) {
-                const cat = resolveCategory(t) || 'Other';
+                const cat = resolveWithMap(t) || 'Other';
                 if (!catMap[cat]) catMap[cat] = { name: cat, total: 0, count: 0, fixedCount: 0, recurringCount: 0, installmentCount: 0, dominantFreq: null };
                 catMap[cat].total += t.amount || 0;
                 catMap[cat].count += 1;

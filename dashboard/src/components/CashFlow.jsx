@@ -157,12 +157,19 @@ export default function CashFlow({ selectedMonths }) {
             : allMonths.slice(-6);
         const monthSet = new Set(months);
 
+        // Build merchant → expense map from transactions with envelope data
+        const merchantExpenseMap = {};
+        for (const t of expenses) {
+            if (t.expense && t.businessName) merchantExpenseMap[t.businessName] = t.expense;
+        }
+        const resolveWithMap = (t) => t.expense || merchantExpenseMap[t.businessName] || t.category;
+
         // Group by category
         const catMap = {};
         for (const t of expenses) {
             const m = t.date.slice(0, 7);
             if (!monthSet.has(m)) continue;
-            const cat = resolveCategory(t);
+            const cat = resolveWithMap(t);
             if (!catMap[cat]) catMap[cat] = { name: cat, nameEn: CATEGORY_TRANSLATIONS[cat] || cat, transactions: [], monthlyTotals: {}, fixedCount: 0, recurringCount: 0, installmentCount: 0, dominantFreq: null };
             catMap[cat].transactions.push(t);
             catMap[cat].monthlyTotals[m] = (catMap[cat].monthlyTotals[m] || 0) + t.amount;

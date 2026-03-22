@@ -69,15 +69,25 @@ export default function Transactions({ selectedMonths, drillCategory, onDrillCle
         });
     }, [selectedMonths]);
 
-    const categories = useMemo(() => {
-        const unique = [...new Set(transactions.map(t => resolveCategory(t)).filter(Boolean))];
-        return unique.sort();
+    // Build merchant → expense map from transactions with envelope data
+    const merchantExpenseMap = useMemo(() => {
+        const m = {};
+        for (const t of transactions) {
+            if (t.expense && t.businessName) m[t.businessName] = t.expense;
+        }
+        return m;
     }, [transactions]);
+    const resolveWithMap = (t) => t.expense || merchantExpenseMap[t.businessName] || t.category;
+
+    const categories = useMemo(() => {
+        const unique = [...new Set(transactions.map(t => resolveWithMap(t)).filter(Boolean))];
+        return unique.sort();
+    }, [transactions, merchantExpenseMap]);
 
     const filtered = useMemo(() => {
         return transactions.filter(t => {
             const name = (t.businessName || '').toLowerCase();
-            const cat = resolveCategory(t) || '';
+            const cat = resolveWithMap(t) || '';
             const catEn = (CATEGORY_TRANSLATIONS[cat] || '').toLowerCase();
 
             if (searchTerm && !name.includes(searchTerm.toLowerCase()) && !catEn.includes(searchTerm.toLowerCase()) && !cat.toLowerCase().includes(searchTerm.toLowerCase())) return false;
@@ -86,13 +96,13 @@ export default function Transactions({ selectedMonths, drillCategory, onDrillCle
             if (categoryFilter && cat !== categoryFilter) return false;
             return true;
         });
-    }, [transactions, searchTerm, typeFilter, categoryFilter]);
+    }, [transactions, searchTerm, typeFilter, categoryFilter, merchantExpenseMap]);
 
     const grouped = useMemo(() => {
         if (!groupByCategory) return null;
         const map = {};
         for (const t of filtered) {
-            const cat = resolveCategory(t) || 'Other';
+            const cat = resolveWithMap(t) || 'Other';
             if (!map[cat]) map[cat] = { category: cat, total: 0, count: 0, transactions: [] };
             map[cat].total += t.isIncome ? t.amount : -t.amount;
             map[cat].count += 1;
@@ -307,7 +317,7 @@ export default function Transactions({ selectedMonths, drillCategory, onDrillCle
                         </thead>
                         <tbody>
                             {displayedRows.map((t, i) => {
-                                const catHe = resolveCategory(t) || '';
+                                const catHe = resolveWithMap(t) || '';
                                 const catEn = CATEGORY_TRANSLATIONS[catHe] || catHe;
                                 const isIncome = t.isIncome;
                                 const freq = formatFrequency(t.monthsInterval);
