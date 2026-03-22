@@ -21,7 +21,9 @@ const clamp = (v: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
 const resolveCategory = (t: any) => t.trackingCategory?.name || t.expense;
 
 function processBudget(budget: any) {
-  const txns = budget.envelopes.flatMap((e: any) => e.actuals || []);
+  const txns = budget.envelopes.flatMap((e: any) =>
+    (e.actuals || []).map((t: any) => ({ ...t, envelopeCategory: e.details?.expense || undefined }))
+  );
 
   // Transactions
   const transactions = txns.map((t: any) => ({
@@ -31,7 +33,7 @@ function processBudget(budget: any) {
     category: t.isIncome ? (resolveCategory(t) || "income") : (resolveCategory(t) || ""),
     source: t.source || undefined,
     isIncome: !!t.isIncome || undefined,
-    expense: t.expense || undefined,
+    expense: t.envelopeCategory || t.expense || undefined,
     monthsInterval: t.monthsInterval || undefined,
     sequencerName: t.sequencerName || undefined,
     placement: t.placement || undefined,
