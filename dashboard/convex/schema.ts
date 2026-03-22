@@ -40,6 +40,14 @@ export default defineSchema({
     category: v.string(),
     source: v.optional(v.string()),
     isIncome: v.optional(v.boolean()),
+    expense: v.optional(v.string()),
+    monthsInterval: v.optional(v.number()),
+    sequencerName: v.optional(v.string()),
+    placement: v.optional(v.string()),
+    accountNumber: v.optional(v.string()),
+    isInstallment: v.optional(v.boolean()),
+    paymentNumber: v.optional(v.number()),
+    totalPayments: v.optional(v.number()),
   }).index("by_date", ["date"]),
 
   income: defineTable({

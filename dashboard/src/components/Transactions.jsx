@@ -22,8 +22,22 @@ const CATEGORY_TRANSLATIONS = {
     'פארמה': 'Pharmacy', 'תחבורה ציבורית': 'Public Transport', 'שיק': 'Check',
     'חינוך': 'Education', 'תיירות': 'Travel', 'בריאות': 'Health',
     'ביגוד והנעלה': 'Clothing', 'פנאי': 'Leisure', 'עמלות': 'Fees',
-    'משכורת': 'Salary',
+    'משכורת': 'Salary', 'ארנונה': 'Property Tax', 'דיור': 'Housing',
 };
+
+const resolveCategory = (t) => t.expense || t.category;
+
+const formatFrequency = (interval) => {
+    if (!interval) return null;
+    if (interval === 1) return 'Monthly';
+    if (interval === 2) return 'Bi-monthly';
+    return `Every ${interval}mo`;
+};
+
+const badgeStyle = (bg, color) => ({
+    display: 'inline-block', padding: '2px 7px', borderRadius: '6px', fontSize: '10px',
+    fontWeight: 600, background: bg, color, marginLeft: '6px', verticalAlign: 'middle',
+});
 
 export default function Transactions({ selectedMonths, drillCategory, onDrillClear }) {
     const transactionsData = useTransactions() || [];
@@ -56,14 +70,14 @@ export default function Transactions({ selectedMonths, drillCategory, onDrillCle
     }, [selectedMonths]);
 
     const categories = useMemo(() => {
-        const unique = [...new Set(transactions.map(t => t.category).filter(Boolean))];
+        const unique = [...new Set(transactions.map(t => resolveCategory(t)).filter(Boolean))];
         return unique.sort();
     }, [transactions]);
 
     const filtered = useMemo(() => {
         return transactions.filter(t => {
             const name = (t.businessName || '').toLowerCase();
-            const cat = (t.category || '');
+            const cat = resolveCategory(t) || '';
             const catEn = (CATEGORY_TRANSLATIONS[cat] || '').toLowerCase();
 
             if (searchTerm && !name.includes(searchTerm.toLowerCase()) && !catEn.includes(searchTerm.toLowerCase()) && !cat.toLowerCase().includes(searchTerm.toLowerCase())) return false;
@@ -78,7 +92,7 @@ export default function Transactions({ selectedMonths, drillCategory, onDrillCle
         if (!groupByCategory) return null;
         const map = {};
         for (const t of filtered) {
-            const cat = t.category || 'Other';
+            const cat = resolveCategory(t) || 'Other';
             if (!map[cat]) map[cat] = { category: cat, total: 0, count: 0, transactions: [] };
             map[cat].total += t.isIncome ? t.amount : -t.amount;
             map[cat].count += 1;
@@ -238,15 +252,23 @@ export default function Transactions({ selectedMonths, drillCategory, onDrillCle
                                                     {isPositive ? '+' : ''}{formatCurrency(g.total)}
                                                 </td>
                                             </tr>
-                                            {isExpanded && g.transactions.map((t, ti) => (
+                                            {isExpanded && g.transactions.map((t, ti) => {
+                                                const freq = formatFrequency(t.monthsInterval);
+                                                return (
                                                 <tr key={ti} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', background: 'rgba(255,255,255,0.015)' }}>
                                                     <td style={{ padding: '10px 8px 10px 44px', fontSize: '13px', color: 'var(--text-secondary)' }}>{formatDate(t.date)}</td>
-                                                    <td style={{ padding: '10px 8px', fontSize: '13px', color: 'var(--text-primary)' }}>{t.businessName || 'Unknown'}</td>
+                                                    <td style={{ padding: '10px 8px', fontSize: '13px', color: 'var(--text-primary)' }}>
+                                                        {t.businessName || 'Unknown'}
+                                                        {freq && <span style={badgeStyle('rgba(59,130,246,0.12)', 'var(--accent-primary)')}>{freq}</span>}
+                                                        {t.placement === 'fixed' && <span style={badgeStyle('rgba(139,92,246,0.12)', 'var(--accent-purple)')}>Fixed</span>}
+                                                        {t.isInstallment && t.totalPayments && <span style={badgeStyle('rgba(245,158,11,0.12)', 'var(--accent-warning)')}>{t.paymentNumber || '?'}/{t.totalPayments}</span>}
+                                                    </td>
                                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontSize: '14px', fontWeight: 600, color: t.isIncome ? 'var(--accent-success)' : 'var(--text-primary)' }}>
                                                         {t.isIncome ? '+' : '-'}{formatCurrency(t.amount)}
                                                     </td>
                                                 </tr>
-                                            ))}
+                                                );
+                                            })}
                                         </React.Fragment>
                                     );
                                 })}
@@ -285,13 +307,19 @@ export default function Transactions({ selectedMonths, drillCategory, onDrillCle
                         </thead>
                         <tbody>
                             {displayedRows.map((t, i) => {
-                                const catHe = t.category || '';
+                                const catHe = resolveCategory(t) || '';
                                 const catEn = CATEGORY_TRANSLATIONS[catHe] || catHe;
                                 const isIncome = t.isIncome;
+                                const freq = formatFrequency(t.monthsInterval);
                                 return (
                                     <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)' }} className="hover-row">
                                         <td style={{ padding: '16px 8px', fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>{formatDate(t.date)}</td>
-                                        <td style={{ padding: '16px 8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>{t.businessName || 'Unknown'}</td>
+                                        <td style={{ padding: '16px 8px', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                            {t.businessName || 'Unknown'}
+                                            {freq && <span style={badgeStyle('rgba(59,130,246,0.12)', 'var(--accent-primary)')}>{freq}</span>}
+                                            {t.placement === 'fixed' && <span style={badgeStyle('rgba(139,92,246,0.12)', 'var(--accent-purple)')}>Fixed</span>}
+                                            {t.isInstallment && t.totalPayments && <span style={badgeStyle('rgba(245,158,11,0.12)', 'var(--accent-warning)')}>{t.paymentNumber || '?'}/{t.totalPayments}</span>}
+                                        </td>
                                         <td style={{ padding: '16px 8px' }}>
                                             <span className="category-chip" style={{
                                                 background: 'rgba(255,255,255,0.04)',
@@ -304,7 +332,7 @@ export default function Transactions({ selectedMonths, drillCategory, onDrillCle
                                                 letterSpacing: '0.05em'
                                             }} title={catHe}>{catEn}</span>
                                         </td>
-                                        <td style={{ padding: '16px 8px', fontSize: '13px', color: 'var(--text-muted)' }}>{t.source || '—'}</td>
+                                        <td style={{ padding: '16px 8px', fontSize: '13px', color: 'var(--text-muted)' }}>{t.accountNumber || t.source || '—'}</td>
                                         <td style={{ padding: '16px 8px', fontSize: '15px', fontWeight: 700, textAlign: 'right', color: isIncome ? 'var(--accent-success)' : 'var(--text-primary)' }}>
                                             {isIncome ? '+' : '-'}{formatCurrency(t.amount)}
                                         </td>

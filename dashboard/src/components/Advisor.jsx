@@ -320,6 +320,12 @@ function buildDataSummary({ trendsData, spendingData, balanceData, trajectoryDat
                 acc[key].count += 1;
                 const mo = t.date?.slice(0, 7);
                 if (mo) acc[key].months[mo] = (acc[key].months[mo] || 0) + Math.round(t.amount);
+                // Capture rich fields from first occurrence
+                if (!acc[key].expense && t.expense) acc[key].expense = CATEGORY_TRANSLATIONS[t.expense] || t.expense;
+                if (!acc[key].frequency && t.monthsInterval) acc[key].frequency = t.monthsInterval === 1 ? 'monthly' : t.monthsInterval === 2 ? 'bi-monthly' : `every ${t.monthsInterval} months`;
+                if (!acc[key].placement && t.placement) acc[key].placement = t.placement;
+                if (!acc[key].accountNumber && t.accountNumber) acc[key].accountNumber = t.accountNumber;
+                if (t.isInstallment && t.totalPayments) acc[key].installment = `${t.paymentNumber || '?'}/${t.totalPayments}`;
                 return acc;
             }, {})
         ).sort((a, b) => b.total - a.total).slice(0, 50).map(m => ({ ...m, total: Math.round(m.total) })),

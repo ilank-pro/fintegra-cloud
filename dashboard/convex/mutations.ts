@@ -132,6 +132,14 @@ export const replaceTransactions = mutation({
         category: t.category,
         source: t.source || undefined,
         isIncome: t.isIncome || undefined,
+        expense: t.expense || undefined,
+        monthsInterval: t.monthsInterval || undefined,
+        sequencerName: t.sequencerName || undefined,
+        placement: t.placement || undefined,
+        accountNumber: t.accountNumber || undefined,
+        isInstallment: t.isInstallment || undefined,
+        paymentNumber: t.paymentNumber || undefined,
+        totalPayments: t.totalPayments || undefined,
       });
     }
   },

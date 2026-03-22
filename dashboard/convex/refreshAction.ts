@@ -31,6 +31,14 @@ function processBudget(budget: any) {
     category: t.isIncome ? (resolveCategory(t) || "income") : (resolveCategory(t) || ""),
     source: t.source || undefined,
     isIncome: !!t.isIncome || undefined,
+    expense: t.expense || undefined,
+    monthsInterval: t.monthsInterval || undefined,
+    sequencerName: t.sequencerName || undefined,
+    placement: t.placement || undefined,
+    accountNumber: t.accountNumberPiiValue || undefined,
+    isInstallment: t.isInstallment || undefined,
+    paymentNumber: t.paymentNumber || undefined,
+    totalPayments: t.totalNumberOfPayments || undefined,
   }));
 
   // Category override map

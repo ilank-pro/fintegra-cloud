@@ -42,8 +42,10 @@ const CATEGORY_TRANSLATIONS = {
     'בריאות': 'Health',
     'ביגוד והנעלה': 'Clothing',
     'פנאי': 'Leisure',
-    'עמלות': 'Fees',
+    'עמלות': 'Fees', 'ארנונה': 'Property Tax', 'דיור': 'Housing',
 };
+
+const resolveCategory = (t) => t.expense || t.category;
 
 const formatCurrency = (val) => {
     if (!val) return '₪0';
@@ -82,10 +84,13 @@ export default function SpendingBreakdown({ selectedMonths, onCategoryClick }) {
             });
             const catMap = {};
             for (const t of filtered) {
-                const cat = t.category || 'Other';
-                if (!catMap[cat]) catMap[cat] = { name: cat, total: 0, count: 0 };
+                const cat = resolveCategory(t) || 'Other';
+                if (!catMap[cat]) catMap[cat] = { name: cat, total: 0, count: 0, fixedCount: 0, recurringCount: 0, installmentCount: 0, dominantFreq: null };
                 catMap[cat].total += t.amount || 0;
                 catMap[cat].count += 1;
+                if (t.placement === 'fixed') catMap[cat].fixedCount += 1;
+                if (t.monthsInterval) { catMap[cat].recurringCount += 1; catMap[cat].dominantFreq = t.monthsInterval; }
+                if (t.isInstallment) catMap[cat].installmentCount += 1;
             }
             const sorted = Object.values(catMap).sort((a, b) => b.total - a.total);
             const sum = sorted.reduce((acc, c) => acc + c.total, 0);
@@ -202,6 +207,25 @@ export default function SpendingBreakdown({ selectedMonths, onCategoryClick }) {
                                         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                                             {cat.count} txns · {pct}%
                                         </span>
+                                    </div>
+                                    {/* Rich metadata badges */}
+                                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+                                        {cat.fixedCount > 0 && cat.fixedCount >= cat.count * 0.5 && (
+                                            <span style={{ padding: '2px 7px', borderRadius: '6px', fontSize: '10px', fontWeight: 600, background: 'rgba(139,92,246,0.12)', color: 'var(--accent-purple)' }}>Fixed</span>
+                                        )}
+                                        {cat.fixedCount > 0 && cat.fixedCount < cat.count * 0.5 && (
+                                            <span style={{ padding: '2px 7px', borderRadius: '6px', fontSize: '10px', fontWeight: 600, background: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)' }}>Variable</span>
+                                        )}
+                                        {cat.dominantFreq && (
+                                            <span style={{ padding: '2px 7px', borderRadius: '6px', fontSize: '10px', fontWeight: 600, background: 'rgba(59,130,246,0.12)', color: 'var(--accent-primary)' }}>
+                                                {cat.dominantFreq === 1 ? 'Monthly' : cat.dominantFreq === 2 ? 'Bi-monthly' : `Every ${cat.dominantFreq}mo`}
+                                            </span>
+                                        )}
+                                        {cat.installmentCount > 0 && (
+                                            <span style={{ padding: '2px 7px', borderRadius: '6px', fontSize: '10px', fontWeight: 600, background: 'rgba(245,158,11,0.12)', color: 'var(--accent-warning)' }}>
+                                                {cat.installmentCount} installment{cat.installmentCount > 1 ? 's' : ''}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 
