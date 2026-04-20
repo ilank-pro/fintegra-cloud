@@ -49,6 +49,10 @@ export function usePensionHistory() {
   return useQuery(api.queries.getPensionHistory);
 }
 
+export function usePensionAccountSnapshots() {
+  return useQuery(api.queries.getPensionAccountSnapshots);
+}
+
 export function useAdvisorHistory() {
   return useQuery(api.queries.getAdvisorHistory);
 }

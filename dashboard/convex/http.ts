@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api } from "./_generated/api";
 import * as XLSX from "xlsx";
+import { normalizeDate } from "./dateUtils";
 
 const http = httpRouter();
 
@@ -106,7 +107,7 @@ http.route({
         const ytdReturn = Number(row[13]) || 0;
         const monthlyDeposit = activeDeposits[policy] || 0;
 
-        if (!dataDate && row[29]) dataDate = String(row[29]);
+        if (!dataDate && row[29]) dataDate = normalizeDate(row[29]);
 
         if (savings > 0 || expected > 0) {
           const type = name.includes("השתלמות")
@@ -124,7 +125,10 @@ http.route({
             policy,
             status: statusHeb === "פעיל" ? "active" : "inactive",
             currentBalance: savings,
+            // Default projection rate to YTD only on first import; the mutation
+            // preserves any user-edited annualInterest on subsequent imports.
             annualInterest: ytdReturn,
+            ytdReturn,
             monthlyDeposit,
             monthlyPension: pensionMo,
             managementFee: mgmtFee,
@@ -142,6 +146,22 @@ http.route({
       await ctx.runMutation(api.mutations.replacePensionAccounts, {
         items: accounts,
         owner,
+      });
+
+      // Persist per-account snapshot for this date+owner
+      const snapshotItems = accounts.map((a) => ({
+        policyKey: `${a.owner}|${a.policy}|${a.name}`,
+        name: a.name,
+        company: a.company,
+        type: a.type,
+        balance: a.currentBalance,
+        ytdReturn: a.ytdReturn,
+        monthlyDeposit: a.monthlyDeposit,
+      }));
+      await ctx.runMutation(api.mutations.replacePensionSnapshotForDate, {
+        date: dataDate,
+        owner,
+        items: snapshotItems,
       });
 
       // Compute totals for snapshot

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as dateUtils from "../dateUtils.js";
 import type * as http from "../http.js";
 import type * as mutations from "../mutations.js";
 import type * as queries from "../queries.js";
@@ -20,6 +21,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  dateUtils: typeof dateUtils;
   http: typeof http;
   mutations: typeof mutations;
   queries: typeof queries;

@@ -78,6 +78,7 @@ export default defineSchema({
     status: v.string(),
     currentBalance: v.number(),
     annualInterest: v.number(),
+    ytdReturn: v.optional(v.number()),
     monthlyDeposit: v.number(),
     monthlyPension: v.number(),
     managementFee: v.number(),
@@ -92,6 +93,21 @@ export default defineSchema({
     ownerTotals: v.any(),
     totalSavings: v.number(),
   }).index("by_date", ["date"]),
+
+  pensionAccountSnapshots: defineTable({
+    date: v.string(),
+    owner: v.string(),
+    policyKey: v.string(),
+    name: v.string(),
+    company: v.string(),
+    type: v.string(),
+    balance: v.number(),
+    ytdReturn: v.number(),
+    monthlyDeposit: v.number(),
+  })
+    .index("by_policy_date", ["policyKey", "date"])
+    .index("by_date_owner", ["date", "owner"])
+    .index("by_date", ["date"]),
 
   advisorReports: defineTable({
     report: v.any(),

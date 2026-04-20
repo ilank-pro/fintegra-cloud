@@ -5,7 +5,7 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { PiggyBank, Upload, TrendingUp, Clock, Shield, Plus, Trash2, Save } from 'lucide-react';
-import { usePensionHistory } from '../hooks/useData';
+import { usePensionHistory, usePensionAccountSnapshots } from '../hooks/useData';
 import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
@@ -125,6 +125,7 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
     const [importing, setImporting] = useState(false);
     const _pensionHistory = usePensionHistory();
     const [history, setHistory] = useState([]);
+    const accountSnapshots = usePensionAccountSnapshots() || [];
 
     // Sync Convex pension history into local state
     useEffect(() => {
@@ -361,6 +362,17 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
     const addAccountMutation = useMutation(api.mutations.addPensionAccount);
     const updateAccountMutation = useMutation(api.mutations.updatePensionAccount);
     const deleteAccountMutation = useMutation(api.mutations.deletePensionAccount);
+    const deleteSnapshotMutation = useMutation(api.mutations.deletePensionSnapshotByDate);
+
+    const deleteSnapshot = async (date) => {
+        if (!window.confirm(`Delete snapshot from ${date}?\nPer-account history for this date will also be removed.`)) return;
+        try {
+            const updated = await deleteSnapshotMutation({ date });
+            if (updated) setHistory(updated);
+        } catch (e) {
+            console.error('Failed to delete snapshot:', e);
+        }
+    };
     const saveSnapshot = async () => {
         setSaving(true);
         try {
@@ -440,6 +452,39 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
 
     const suffColor = yearsLasting >= 25 ? 'var(--accent-success)' : yearsLasting >= 15 ? 'var(--accent-warning)' : 'var(--accent-danger)';
     const suffPct = Math.min(100, (yearsLasting / 35) * 100);
+
+    // Per-program performance — group snapshots by policyKey, compute first/latest
+    const programSeries = useMemo(() => {
+        const byKey = new Map();
+        for (const s of accountSnapshots) {
+            if (!selectedOwners.has(s.owner)) continue;
+            if (!byKey.has(s.policyKey)) byKey.set(s.policyKey, []);
+            byKey.get(s.policyKey).push(s);
+        }
+        const out = [];
+        for (const [key, snaps] of byKey.entries()) {
+            snaps.sort((a, b) => a.date.localeCompare(b.date));
+            const first = snaps[0];
+            const latest = snaps[snaps.length - 1];
+            const deltaAbs = latest.balance - first.balance;
+            const deltaPct = first.balance > 0 ? (deltaAbs / first.balance) * 100 : 0;
+            out.push({
+                key,
+                name: latest.name,
+                company: latest.company,
+                type: latest.type,
+                owner: latest.owner,
+                snapshots: snaps,
+                currentBalance: latest.balance,
+                ytdReturn: latest.ytdReturn,
+                deltaAbs,
+                deltaPct,
+                hasHistory: snaps.length >= 2,
+            });
+        }
+        out.sort((a, b) => b.currentBalance - a.currentBalance);
+        return out;
+    }, [accountSnapshots, selectedOwners]);
 
     // Household totals (all owners combined)
     const householdToday = useMemo(() => allAccounts.reduce((s, a) => s + a.currentBalance, 0), [allAccounts]);
@@ -617,6 +662,100 @@ export default function Pension({ allAccounts, setAllAccounts, retirementAges, s
                     <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '8px', textAlign: 'center' }}>
                         {history.length} snapshot{history.length !== 1 ? 's' : ''} — save or import to track growth over time
                     </div>
+
+                    {/* Snapshots list with delete */}
+                    <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-light)', paddingTop: '16px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px' }}>Snapshots</div>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid var(--border-light)', color: 'var(--text-muted)' }}>
+                                        <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600 }}>Date</th>
+                                        <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600 }}>Total ₪</th>
+                                        <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600 }}>Ilan</th>
+                                        <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600 }}>Spouse</th>
+                                        <th style={{ padding: '6px 8px', width: '40px' }}></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {[...history].sort((a, b) => a.date.localeCompare(b.date)).map(h => (
+                                        <tr key={h._id || h.date} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                            <td style={{ padding: '8px', fontWeight: 600 }}>{h.date}</td>
+                                            <td style={{ padding: '8px', textAlign: 'right' }}>{formatFull(h.totalSavings || 0)}</td>
+                                            <td style={{ padding: '8px', textAlign: 'right', color: 'var(--text-secondary)' }}>{formatFull(h.ownerTotals?.ilan || 0)}</td>
+                                            <td style={{ padding: '8px', textAlign: 'right', color: 'var(--text-secondary)' }}>{formatFull(h.ownerTotals?.spouse || 0)}</td>
+                                            <td style={{ padding: '8px', textAlign: 'center' }}>
+                                                <button onClick={() => deleteSnapshot(h.date)} title={`Delete snapshot ${h.date}`}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', opacity: 0.6 }}>
+                                                    <Trash2 size={13} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Program Performance */}
+            {programSeries.length > 0 && (
+                <div className="glass-panel" style={{ padding: '24px' }}>
+                    <div className="flex-between" style={{ marginBottom: '12px' }}>
+                        <h3 style={{ fontWeight: 600 }}>Program Performance</h3>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            YTD from latest import · Δ vs first snapshot
+                        </span>
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '1px solid var(--border-light)', color: 'var(--text-muted)' }}>
+                                    <th style={{ padding: '10px 8px', textAlign: 'left', fontWeight: 600 }}>Program</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'left', fontWeight: 600 }}>Company</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 600 }}>Current ₪</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 600 }}>YTD %</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 600 }}>All-Time Δ ₪</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 600 }}>All-Time Δ %</th>
+                                    <th style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 600 }}>Snapshots</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {programSeries.map(p => {
+                                    const ytdColor = p.ytdReturn > 0 ? 'var(--accent-success)' : p.ytdReturn < 0 ? 'var(--accent-danger)' : 'var(--text-muted)';
+                                    const deltaColor = p.deltaAbs > 0 ? 'var(--accent-success)' : p.deltaAbs < 0 ? 'var(--accent-danger)' : 'var(--text-muted)';
+                                    return (
+                                        <tr key={p.key} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }} className="hover-row">
+                                            <td style={{ padding: '10px 8px' }}>
+                                                <div style={{ fontWeight: 600, fontSize: '12px' }}>{p.name}</div>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{p.owner === 'spouse' ? 'Spouse' : 'Ilan'} · {p.type}</div>
+                                            </td>
+                                            <td style={{ padding: '10px 8px', color: 'var(--text-secondary)', fontSize: '11px' }}>{p.company}</td>
+                                            <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 600 }}>{formatFull(p.currentBalance)}</td>
+                                            <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 600, color: ytdColor }}>
+                                                {p.ytdReturn !== 0 || p.snapshots.length > 0 ? `${p.ytdReturn > 0 ? '+' : ''}${p.ytdReturn.toFixed(2)}%` : '—'}
+                                            </td>
+                                            <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 600, color: deltaColor }}>
+                                                {p.hasHistory ? `${p.deltaAbs > 0 ? '+' : ''}${formatFull(p.deltaAbs)}` : '—'}
+                                            </td>
+                                            <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 600, color: deltaColor }}>
+                                                {p.hasHistory ? `${p.deltaPct > 0 ? '+' : ''}${p.deltaPct.toFixed(2)}%` : '—'}
+                                            </td>
+                                            <td style={{ padding: '10px 8px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '11px' }}>
+                                                {p.snapshots.length}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                    {programSeries.every(p => !p.hasHistory) && (
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '10px', textAlign: 'center' }}>
+                            All-time gains will appear after a second import or saved snapshot.
+                        </div>
+                    )}
                 </div>
             )}
 

@@ -1,5 +1,6 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { normalizeDate } from "./dateUtils";
 
 // --- Config mutations ---
 
@@ -195,20 +196,26 @@ export const replaceTrends = mutation({
 export const replacePensionAccounts = mutation({
   args: { items: v.any(), owner: v.optional(v.string()) },
   handler: async (ctx, { items, owner }) => {
-    if (owner) {
-      // Delete only this owner's accounts
-      const existing = await ctx.db
-        .query("pensionAccounts")
-        .withIndex("by_owner", (q) => q.eq("owner", owner))
-        .collect();
-      for (const doc of existing) await ctx.db.delete(doc._id);
-    } else {
-      // Delete all
-      const existing = await ctx.db.query("pensionAccounts").collect();
-      for (const doc of existing) await ctx.db.delete(doc._id);
+    // Snapshot existing user-edited annualInterest by (owner, policy, name) so
+    // re-imports don't clobber the user's projection assumption.
+    const prior = owner
+      ? await ctx.db
+          .query("pensionAccounts")
+          .withIndex("by_owner", (q) => q.eq("owner", owner))
+          .collect()
+      : await ctx.db.query("pensionAccounts").collect();
+
+    const priorRate = new Map<string, number>();
+    for (const p of prior) {
+      priorRate.set(`${p.owner}|${p.policy}|${p.name}`, p.annualInterest);
     }
+
+    for (const doc of prior) await ctx.db.delete(doc._id);
+
     for (const a of items) {
       const { id: accountId, ...rest } = a;
+      const key = `${rest.owner}|${rest.policy}|${rest.name}`;
+      const preservedRate = priorRate.get(key);
       await ctx.db.insert("pensionAccounts", {
         accountId: accountId || a.accountId || `imported-${Date.now()}`,
         name: rest.name,
@@ -216,7 +223,8 @@ export const replacePensionAccounts = mutation({
         policy: rest.policy,
         status: rest.status,
         currentBalance: rest.currentBalance,
-        annualInterest: rest.annualInterest,
+        annualInterest: preservedRate ?? rest.annualInterest,
+        ytdReturn: rest.ytdReturn,
         monthlyDeposit: rest.monthlyDeposit,
         monthlyPension: rest.monthlyPension,
         managementFee: rest.managementFee,
@@ -224,6 +232,84 @@ export const replacePensionAccounts = mutation({
         type: rest.type,
         depositStopAge: rest.depositStopAge,
         owner: rest.owner,
+      });
+    }
+  },
+});
+
+// One-shot migration: rewrite any non-canonical date strings to YYYY-MM-DD
+// across pensionHistory and pensionAccountSnapshots. Idempotent.
+export const normalizePensionDates = mutation({
+  args: {},
+  handler: async (ctx) => {
+    let historyFixed = 0;
+    let snapshotsFixed = 0;
+
+    const histRows = await ctx.db.query("pensionHistory").collect();
+    for (const r of histRows) {
+      const norm = normalizeDate(r.date);
+      if (norm && norm !== r.date) {
+        await ctx.db.patch(r._id, { date: norm });
+        historyFixed++;
+      }
+    }
+
+    const snapRows = await ctx.db.query("pensionAccountSnapshots").collect();
+    for (const r of snapRows) {
+      const norm = normalizeDate(r.date);
+      if (norm && norm !== r.date) {
+        await ctx.db.patch(r._id, { date: norm });
+        snapshotsFixed++;
+      }
+    }
+
+    return { historyFixed, snapshotsFixed, historyTotal: histRows.length, snapshotsTotal: snapRows.length };
+  },
+});
+
+export const deletePensionSnapshotByDate = mutation({
+  args: { date: v.string() },
+  handler: async (ctx, { date }) => {
+    const histRows = await ctx.db
+      .query("pensionHistory")
+      .withIndex("by_date", (q) => q.eq("date", date))
+      .collect();
+    for (const r of histRows) await ctx.db.delete(r._id);
+
+    const snapRows = await ctx.db
+      .query("pensionAccountSnapshots")
+      .withIndex("by_date", (q) => q.eq("date", date))
+      .collect();
+    for (const r of snapRows) await ctx.db.delete(r._id);
+
+    return await ctx.db.query("pensionHistory").order("asc").collect();
+  },
+});
+
+export const replacePensionSnapshotForDate = mutation({
+  args: {
+    date: v.string(),
+    owner: v.string(),
+    items: v.any(),
+  },
+  handler: async (ctx, { date, owner, items }) => {
+    const existing = await ctx.db
+      .query("pensionAccountSnapshots")
+      .withIndex("by_date_owner", (q) => q.eq("date", date).eq("owner", owner))
+      .collect();
+    for (const doc of existing) await ctx.db.delete(doc._id);
+
+    for (const it of items) {
+      await ctx.db.insert("pensionAccountSnapshots", {
+        date,
+        owner,
+        policyKey: it.policyKey,
+        name: it.name,
+        company: it.company,
+        type: it.type,
+        balance: it.balance,
+        ytdReturn: it.ytdReturn,
+        monthlyDeposit: it.monthlyDeposit,
       });
     }
   },

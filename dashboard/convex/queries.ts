@@ -109,7 +109,16 @@ export const getPensionAccounts = query({
 export const getPensionHistory = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("pensionHistory").order("asc").collect();
+    const rows = await ctx.db.query("pensionHistory").collect();
+    return rows.sort((a, b) => a.date.localeCompare(b.date));
+  },
+});
+
+export const getPensionAccountSnapshots = query({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("pensionAccountSnapshots").collect();
+    return rows.sort((a, b) => a.date.localeCompare(b.date));
   },
 });
 
