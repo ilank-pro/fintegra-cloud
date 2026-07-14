@@ -13,6 +13,27 @@ export const getConfig = query({
   },
 });
 
+// Non-sensitive RiseUp session status for the Settings page.
+// Deliberately never returns the cookie string to the client.
+export const getRiseupSessionInfo = query({
+  args: {},
+  handler: async (ctx) => {
+    const get = async (key: string) =>
+      (
+        await ctx.db
+          .query("config")
+          .withIndex("by_key", (q) => q.eq("key", key))
+          .first()
+      )?.value ?? null;
+    const cookies = await get("RISEUP_COOKIES");
+    return {
+      configured: !!cookies,
+      commitHash: await get("RISEUP_COMMIT_HASH"),
+      expiresAt: await get("RISEUP_SESSION_EXPIRES_AT"),
+    };
+  },
+});
+
 // Singleton queries
 export const getBalance = query({
   args: {},

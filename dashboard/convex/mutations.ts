@@ -19,6 +19,32 @@ export const setConfig = mutation({
   },
 });
 
+// Store a fresh RiseUp session (cookies + commit hash + optional expiry) in one call.
+// Used by the in-app Settings page so users don't have to run push-session.mjs.
+export const setRiseupSession = mutation({
+  args: {
+    cookies: v.string(),
+    commitHash: v.string(),
+    expiresAt: v.optional(v.string()),
+  },
+  handler: async (ctx, { cookies, commitHash, expiresAt }) => {
+    const upsert = async (key: string, value: string) => {
+      const existing = await ctx.db
+        .query("config")
+        .withIndex("by_key", (q) => q.eq("key", key))
+        .first();
+      if (existing) {
+        await ctx.db.patch(existing._id, { value });
+      } else {
+        await ctx.db.insert("config", { key, value });
+      }
+    };
+    await upsert("RISEUP_COOKIES", cookies);
+    await upsert("RISEUP_COMMIT_HASH", commitHash);
+    if (expiresAt) await upsert("RISEUP_SESSION_EXPIRES_AT", expiresAt);
+  },
+});
+
 // --- Pension account mutations ---
 
 export const updatePensionAccount = mutation({

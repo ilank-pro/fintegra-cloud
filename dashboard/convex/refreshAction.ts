@@ -475,11 +475,19 @@ export const refreshData = action({
       successCount++;
     }
 
+    // Expired sessions surface as 401/403 or (with redirect:"manual") a 3xx redirect to login.
+    const authFailed = errors.some((e) => /\b(30\d|401|403)\b/.test(e));
     return {
       ok: successCount > 0,
       refreshedAt: new Date().toISOString(),
       successCount,
       errors: errors.length > 0 ? errors : undefined,
+      error:
+        successCount === 0
+          ? authFailed
+            ? "RiseUp session expired — re-login and update credentials."
+            : `All data fetches failed${errors[0] ? `: ${errors[0]}` : ""}.`
+          : undefined,
     };
   },
 });

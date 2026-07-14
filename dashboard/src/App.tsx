@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import './index.css';
-import { LayoutDashboard, Wallet, ArrowRightLeft, Lightbulb, BarChart2, PieChart, SlidersHorizontal, CalendarDays, RefreshCw, Sun, Moon, BriefcaseBusiness, Pin, PinOff, PiggyBank } from 'lucide-react';
+import { LayoutDashboard, Wallet, ArrowRightLeft, Lightbulb, BarChart2, PieChart, SlidersHorizontal, CalendarDays, RefreshCw, Sun, Moon, BriefcaseBusiness, Pin, PinOff, PiggyBank, Settings as SettingsIcon, ShieldAlert, X } from 'lucide-react';
 import Overview from './components/Overview';
 import CashFlow from './components/CashFlow';
 import Transactions from './components/Transactions';
@@ -9,7 +9,8 @@ import SpendingBreakdown from './components/SpendingBreakdown';
 import Simulations from './components/Simulations';
 import Advisor from './components/Advisor';
 import Pension from './components/Pension';
-import { usePensionAccounts, useHealthScore, useTrends, useTransactions, useSpending, useIncome } from './hooks/useData';
+import Settings from './components/Settings';
+import { usePensionAccounts, useHealthScore, useTrends, useTransactions, useSpending, useIncome, useRiseupSessionInfo } from './hooks/useData';
 import { getBudgetMonth } from './utils/budgetMonth';
 
 function monthLabel(m: string) {
@@ -94,6 +95,7 @@ function App() {
     const transactionsData = useTransactions();
     const spendingData = useSpending();
     const incomeData = useIncome();
+    const sessionInfo = useRiseupSessionInfo();
 
     const availableMonths = useMemo(
         () => buildAvailableMonths(trendsData || [], transactionsData || [], incomeData || [], spendingData || []),
@@ -168,7 +170,20 @@ function App() {
 
     const [refreshing, setRefreshing] = useState(false);
     const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
+    const [bannerDismissed, setBannerDismissed] = useState(false);
     const [drillCategory, setDrillCategory] = useState<string | null>(null);
+
+    // Show an expiry banner when the stored session is past its expiry, or when a
+    // refresh just failed with a session-expired error.
+    const sessionExpired = useMemo(() => {
+        if (!sessionInfo?.configured) return false;
+        if (sessionInfo.expiresAt) {
+            const t = new Date(sessionInfo.expiresAt).getTime();
+            if (!Number.isNaN(t) && t < Date.now()) return true;
+        }
+        return false;
+    }, [sessionInfo]);
+    const showExpiryBanner = !bannerDismissed && (sessionExpired || (refreshMsg?.toLowerCase().includes('expired') ?? false));
     const [monthBarPinned, setMonthBarPinned] = useState(false);
     const [aiReport, setAiReport] = useState<any>(null);
     const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -204,13 +219,14 @@ function App() {
             if (data.ok) {
                 setRefreshMsg(data.errors?.length ? `Refreshed (${data.errors.length} warnings)` : 'Data refreshed!');
             } else {
-                setRefreshMsg(data.error || 'Refresh failed');
+                const detail = data.error || (data.errors?.length ? data.errors[0] : null);
+                setRefreshMsg(detail ? `Refresh failed: ${detail}` : 'Refresh failed');
             }
         } catch {
             setRefreshMsg('Refresh failed — server unreachable');
         } finally {
             setRefreshing(false);
-            setTimeout(() => setRefreshMsg(null), 5000);
+            setTimeout(() => setRefreshMsg(null), 8000);
         }
     };
 
@@ -236,6 +252,7 @@ function App() {
             case 'simulations': return <Simulations selectedMonths={selectedMonths} />;
             case 'advisor': return <Advisor aiReport={aiReport} setAiReport={setAiReport} chatMessages={chatMessages} setChatMessages={setChatMessages} />;
             case 'pension': return <Pension allAccounts={localPensionAccounts} setAllAccounts={setLocalPensionAccounts} retirementAges={retirementAges} setRetirementAges={setRetirementAges} />;
+            case 'settings': return <Settings />;
             default: return <Overview selectedMonths={selectedMonths} availableMonths={availableMonths} pensionOverrides={pensionOverrides} />;
         }
     };
@@ -249,6 +266,7 @@ function App() {
         simulations: 'Simulations',
         advisor: 'Financial Advisor',
         pension: 'Savings & Pension',
+        settings: 'Settings',
     };
 
     return (
@@ -272,6 +290,7 @@ function App() {
                         { id: 'simulations', icon: <SlidersHorizontal size={20} />, label: 'Simulations' },
                         { id: 'pension', icon: <PiggyBank size={20} />, label: 'Pension' },
                         { id: 'advisor', icon: <BriefcaseBusiness size={20} />, label: 'Advisor' },
+                        { id: 'settings', icon: <SettingsIcon size={20} />, label: 'Settings' },
                     ].map(({ id, icon, label }) => (
                         <button
                             key={id}
@@ -307,6 +326,37 @@ function App() {
 
             {/* Main Content */}
             <main className="main-content">
+                {showExpiryBanner && (
+                    <div className="animate-fade-in" style={{
+                        display: 'flex', alignItems: 'center', gap: '12px',
+                        padding: '12px 16px', marginBottom: '12px', borderRadius: '10px',
+                        background: 'rgba(255,0,85,0.08)', border: '1px solid rgba(255,0,85,0.25)',
+                        color: 'var(--accent-danger)', fontSize: '13px', flexShrink: 0,
+                    }}>
+                        <ShieldAlert size={18} />
+                        <span style={{ flex: 1 }}>
+                            Your RiseUp session has expired — data refresh will fail until you update your credentials.
+                        </span>
+                        <button
+                            onClick={() => { setActiveTab('settings'); setBannerDismissed(true); }}
+                            style={{
+                                padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                                cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+                                border: '1px solid rgba(255,0,85,0.4)', background: 'rgba(255,0,85,0.12)',
+                                color: 'var(--accent-danger)',
+                            }}
+                        >
+                            Update credentials
+                        </button>
+                        <button
+                            onClick={() => setBannerDismissed(true)}
+                            aria-label="Dismiss"
+                            style={{ background: 'none', border: 'none', color: 'var(--accent-danger)', cursor: 'pointer', display: 'flex', padding: 0 }}
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
+                )}
                 <header className="top-header flex-between animate-fade-in">
                     <h2>{headerTitle[activeTab] || 'Dashboard'}</h2>
                     <div className="date-badge glass-panel">

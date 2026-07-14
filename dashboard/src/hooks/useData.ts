@@ -68,3 +68,7 @@ export function useSpendingGoals() {
 export function useActionTasks() {
   return useQuery(api.queries.getActionTasks);
 }
+
+export function useRiseupSessionInfo() {
+  return useQuery(api.queries.getRiseupSessionInfo);
+}
