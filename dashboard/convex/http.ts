@@ -259,7 +259,10 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no explanation outside the JSON.
   "longTermOutlook": "1-2 paragraph forward-looking narrative about their financial trajectory and what achieving the plan would mean"
 }
 
-Include 3-4 keyMetrics, 4-5 topFindings, exactly 5 improvementPlan steps, 4-6 categoryTargets, 3-5 riskMatrix items, 2-4 savingsInsights highlights, 2-4 pensionInsights highlights, 3-5 pensionRecommendations, and 5-7 monthlyChecklist items. The client is 53 years old with retirement target age 63.
+Include 3-4 keyMetrics, 4-5 topFindings, exactly 5 improvementPlan steps, 4-6 categoryTargets, 3-5 riskMatrix items, 2-4 savingsInsights highlights, 2-4 pensionInsights highlights, 3-5 pensionRecommendations, and 5-7 monthlyChecklist items.
+
+IMPORTANT — Household & Retirement Rules:
+This is a TWO-PERSON household. The primary client (owner "ilan") is 53 with retirement target age 63; the spouse (owner "spouse") is 51 with retirement target age 65. Each pension account in "pensionAccounts" has an "owner" field ("ilan" or "spouse"), and "pensionByOwner" gives per-owner totals. You MUST analyze retirement readiness for BOTH people: explicitly cover the spouse's pension accounts and retirement outlook, not just the client's. In pensionInsights and pensionRecommendations, attribute each account and recommendation to its owner (e.g. "Ilan's..." / "Spouse's...") and give a combined household retirement view. Never omit or overlook the spouse's accounts — they are as important as the client's.
 
 IMPORTANT — Transaction Metadata Rules:
 The transactionsByMerchant data includes rich metadata for each merchant:
@@ -288,7 +291,8 @@ ${JSON.stringify(dataSummary, null, 2)}`;
         },
         body: JSON.stringify({
           model: "claude-sonnet-5",
-          max_tokens: 4000,
+          max_tokens: 8000,
+          thinking: { type: "disabled" },
           system: systemPrompt,
           messages: [{ role: "user", content: userMessage }],
         }),
@@ -300,7 +304,7 @@ ${JSON.stringify(dataSummary, null, 2)}`;
       }
 
       const result = (await response.json()) as any;
-      const report = result.content?.[0]?.text || "No report generated";
+      const report = result.content?.find((b: any) => b.type === "text")?.text || "No report generated";
 
       return corsResponse({ ok: true, report });
     } catch (err: any) {
@@ -322,6 +326,8 @@ http.route({
 
       const systemPrompt = `You are a professional Israeli financial advisor continuing a consultation. You have already provided a detailed report to this client. Use their financial data below to answer follow-up questions accurately. Be specific with numbers (ILS ₪). Keep responses concise (2-4 paragraphs max) unless the user asks for more detail. Format key numbers in bold using **number** syntax.
 
+This is a two-person household: the primary client (owner "ilan", 53, retires at 63) and the spouse (owner "spouse", 51, retires at 65). Pension accounts carry an "owner" field and "pensionByOwner" gives per-owner totals — when discussing pension or retirement, cover BOTH people and attribute accounts to their owner.
+
 ## Client's Financial Data
 ${JSON.stringify(dataSummary, null, 2)}
 
@@ -338,6 +344,7 @@ ${reportSummary}`;
         body: JSON.stringify({
           model: "claude-sonnet-5",
           max_tokens: 2000,
+          thinking: { type: "disabled" },
           system: systemPrompt,
           messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
         }),
@@ -349,7 +356,7 @@ ${reportSummary}`;
       }
 
       const result = (await response.json()) as any;
-      const content = result.content?.[0]?.text || "No response generated";
+      const content = result.content?.find((b: any) => b.type === "text")?.text || "No response generated";
 
       return corsResponse({ ok: true, content });
     } catch (err: any) {

@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { AlertTriangle, CheckCircle2, AlertCircle, Sparkles, Key, ChevronDown, ChevronUp, RefreshCw, Download, Mail, PiggyBank, Shield, Send, MessageCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, AlertCircle, Sparkles, Key, ChevronDown, ChevronUp, RefreshCw, Download, Mail, PiggyBank, Shield, Send, MessageCircle, Paperclip, X } from 'lucide-react';
 import { useTrends, useBalance, useSpending, useProgress, useTrajectory, useHealthScore, useIncome, usePensionAccounts, useTransactions, useAdvisorHistory } from '../hooks/useData';
 import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -300,6 +300,7 @@ function buildDataSummary({ trendsData, spendingData, balanceData, trajectoryDat
         retirement: health.retirement,
         pensionAccounts: (Array.isArray(pensionData) ? pensionData : []).map(a => ({
             name: a.nameEn || a.name,
+            owner: a.owner || 'ilan',
             type: a.type,
             company: a.company,
             status: a.status,
@@ -307,7 +308,18 @@ function buildDataSummary({ trendsData, spendingData, balanceData, trajectoryDat
             annualInterest: a.annualInterest,
             monthlyDeposit: a.monthlyDeposit,
             monthlyPension: a.monthlyPension,
+            depositStopAge: a.depositStopAge,
         })),
+        pensionByOwner: Object.values(
+            (Array.isArray(pensionData) ? pensionData : []).reduce((acc, a) => {
+                const owner = a.owner || 'ilan';
+                if (!acc[owner]) acc[owner] = { owner, accountCount: 0, totalBalance: 0, monthlyDeposit: 0 };
+                acc[owner].accountCount += 1;
+                acc[owner].totalBalance += a.currentBalance || 0;
+                acc[owner].monthlyDeposit += a.monthlyDeposit || 0;
+                return acc;
+            }, {})
+        ),
         incomeBreakdown: income.map(i => ({
             date: i.date, amount: i.amount, source: i.businessName, category: i.category,
         })),
@@ -389,8 +401,10 @@ export default function Advisor({ aiReport, setAiReport, chatMessages, setChatMe
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError, setAiError] = useState(null);
     const [chatInput, setChatInput] = useState('');
+    const [chatImages, setChatImages] = useState([]);
     const [chatLoading, setChatLoading] = useState(false);
     const chatEndRef = useRef(null);
+    const imageInputRef = useRef(null);
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -403,12 +417,38 @@ export default function Advisor({ aiReport, setAiReport, chatMessages, setChatMe
         "Where should I focus first?",
     ];
 
-    const sendChatMessage = async (text) => {
-        if (!text?.trim() || !apiKey || chatLoading) return;
-        const userMsg = { role: 'user', content: text.trim() };
+    const handleImageAttach = (e) => {
+        const files = Array.from(e.target.files || []);
+        for (const file of files) {
+            if (!file.type.startsWith('image/')) continue;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64 = reader.result.split(',')[1];
+                setChatImages(prev => [...prev, { base64, mediaType: file.type, preview: reader.result }]);
+            };
+            reader.readAsDataURL(file);
+        }
+        e.target.value = '';
+    };
+
+    const sendChatMessage = async (text, images = []) => {
+        if ((!text?.trim() && images.length === 0) || !apiKey || chatLoading) return;
+        const hasImages = images.length > 0;
+        const content = hasImages
+            ? [
+                ...images.map(img => ({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } })),
+                ...(text?.trim() ? [{ type: 'text', text: text.trim() }] : []),
+              ]
+            : text.trim();
+        const displayContent = {
+            text: text?.trim() || '',
+            images: images.map(img => img.preview),
+        };
+        const userMsg = { role: 'user', content, displayContent };
         const updatedMessages = [...chatMessages, userMsg];
         setChatMessages(updatedMessages);
         setChatInput('');
+        setChatImages([]);
         setChatLoading(true);
         try {
             const siteUrl = import.meta.env.VITE_CONVEX_SITE_URL || import.meta.env.VITE_CONVEX_URL?.replace('.cloud', '.site') || '';
@@ -483,10 +523,19 @@ export default function Advisor({ aiReport, setAiReport, chatMessages, setChatMe
                 // Parse structured JSON from Claude
                 try {
                     const reportText = data.report;
-                    // Extract JSON from possible markdown code blocks
-                    const jsonMatch = reportText.match(/```json\s*([\s\S]*?)```/) || reportText.match(/```\s*([\s\S]*?)```/);
-                    const jsonStr = jsonMatch ? jsonMatch[1].trim() : reportText.trim();
-                    const parsed = JSON.parse(jsonStr);
+                    // Strip markdown code fences if present, then parse.
+                    const fenceMatch = reportText.match(/```(?:json)?\s*([\s\S]*?)```/);
+                    const jsonStr = (fenceMatch ? fenceMatch[1] : reportText).trim();
+                    let parsed;
+                    try {
+                        parsed = JSON.parse(jsonStr);
+                    } catch {
+                        // Tolerate leading/trailing prose: parse the outermost {...} object.
+                        const start = jsonStr.indexOf('{');
+                        const end = jsonStr.lastIndexOf('}');
+                        if (start === -1 || end <= start) throw new Error('No JSON object found');
+                        parsed = JSON.parse(jsonStr.slice(start, end + 1));
+                    }
                     setAiReport(parsed);
 
                     // Save report + metrics snapshot to Convex
@@ -1103,7 +1152,15 @@ export default function Advisor({ aiReport, setAiReport, chatMessages, setChatMe
                                     color: 'var(--text-secondary)',
                                     whiteSpace: 'pre-wrap',
                                 }}>
-                                    {msg.content}
+                                    {msg.displayContent?.images?.length > 0 && (
+                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: msg.displayContent.text ? '8px' : 0 }}>
+                                            {msg.displayContent.images.map((src, j) => (
+                                                <img key={j} src={src} alt="attachment" style={{ maxWidth: '120px', maxHeight: '80px', borderRadius: '6px', objectFit: 'cover', cursor: 'pointer' }}
+                                                    onClick={() => window.open(src, '_blank')} />
+                                            ))}
+                                        </div>
+                                    )}
+                                    {msg.displayContent ? msg.displayContent.text : msg.content}
                                 </div>
                             ))}
                             {chatLoading && (
@@ -1116,33 +1173,67 @@ export default function Advisor({ aiReport, setAiReport, chatMessages, setChatMe
                         </div>
 
                         {/* Input */}
-                        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-light)', display: 'flex', gap: '8px' }}>
-                            <input
-                                type="text"
-                                placeholder="Ask a follow-up question..."
-                                value={chatInput}
-                                onChange={(e) => setChatInput(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(chatInput); } }}
-                                disabled={chatLoading}
-                                style={{
-                                    flex: 1, padding: '8px 12px', borderRadius: '8px', fontSize: '12px',
-                                    border: '1px solid var(--border-light)', background: 'rgba(255,255,255,0.04)',
-                                    color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit',
-                                }}
-                            />
-                            <button
-                                onClick={() => sendChatMessage(chatInput)}
-                                disabled={!chatInput.trim() || chatLoading}
-                                style={{
-                                    padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(139,92,246,0.3)',
-                                    background: 'rgba(139,92,246,0.1)', color: 'var(--accent-purple)',
-                                    cursor: !chatInput.trim() || chatLoading ? 'not-allowed' : 'pointer',
-                                    opacity: !chatInput.trim() || chatLoading ? 0.5 : 1,
-                                    fontFamily: 'inherit', display: 'flex', alignItems: 'center',
-                                }}
-                            >
-                                <Send size={14} />
-                            </button>
+                        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-light)' }}>
+                            {chatImages.length > 0 && (
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                                    {chatImages.map((img, idx) => (
+                                        <div key={idx} style={{ position: 'relative', display: 'inline-block' }}>
+                                            <img src={img.preview} alt="attach" style={{ width: '48px', height: '48px', borderRadius: '6px', objectFit: 'cover' }} />
+                                            <button onClick={() => setChatImages(prev => prev.filter((_, i) => i !== idx))} style={{
+                                                position: 'absolute', top: '-4px', right: '-4px', width: '16px', height: '16px',
+                                                borderRadius: '50%', border: 'none', background: 'var(--accent-danger)',
+                                                color: '#fff', fontSize: '10px', cursor: 'pointer', display: 'flex',
+                                                alignItems: 'center', justifyContent: 'center', padding: 0,
+                                            }}>
+                                                <X size={10} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+                                <input type="file" ref={imageInputRef} accept="image/*" multiple onChange={handleImageAttach} style={{ display: 'none' }} />
+                                <button
+                                    onClick={() => imageInputRef.current?.click()}
+                                    disabled={chatLoading}
+                                    title="Attach image"
+                                    style={{
+                                        padding: '8px', borderRadius: '8px', border: '1px solid var(--border-light)',
+                                        background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)',
+                                        cursor: chatLoading ? 'not-allowed' : 'pointer', display: 'flex',
+                                        alignItems: 'center', flexShrink: 0,
+                                    }}
+                                >
+                                    <Paperclip size={14} />
+                                </button>
+                                <textarea
+                                    placeholder="Ask a follow-up question..."
+                                    value={chatInput}
+                                    onChange={(e) => setChatInput(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(chatInput, chatImages); } }}
+                                    disabled={chatLoading}
+                                    rows={2}
+                                    style={{
+                                        flex: 1, padding: '8px 12px', borderRadius: '8px', fontSize: '12px',
+                                        border: '1px solid var(--border-light)', background: 'rgba(255,255,255,0.04)',
+                                        color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit',
+                                        resize: 'none', maxHeight: '80px', overflowY: 'auto', lineHeight: 1.5,
+                                    }}
+                                />
+                                <button
+                                    onClick={() => sendChatMessage(chatInput, chatImages)}
+                                    disabled={(!chatInput.trim() && chatImages.length === 0) || chatLoading}
+                                    style={{
+                                        padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(139,92,246,0.3)',
+                                        background: 'rgba(139,92,246,0.1)', color: 'var(--accent-purple)',
+                                        cursor: (!chatInput.trim() && chatImages.length === 0) || chatLoading ? 'not-allowed' : 'pointer',
+                                        opacity: (!chatInput.trim() && chatImages.length === 0) || chatLoading ? 0.5 : 1,
+                                        fontFamily: 'inherit', display: 'flex', alignItems: 'center', flexShrink: 0,
+                                    }}
+                                >
+                                    <Send size={14} />
+                                </button>
+                            </div>
                         </div>
                     </div>
                     </div>
