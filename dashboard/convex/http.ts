@@ -19,6 +19,31 @@ function corsResponse(body: any, status = 200) {
   });
 }
 
+// Extract clean, validated JSON from a model response that may wrap it in
+// markdown fences, leading/trailing prose, or trailing commas. Returns a
+// re-serialized JSON string the client can always JSON.parse, or null.
+function extractReportJson(text: string): string | null {
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const s = (fence ? fence[1] : text).trim();
+  const tryParse = (str: string) => {
+    try {
+      return JSON.parse(str);
+    } catch {
+      return undefined;
+    }
+  };
+  let obj = tryParse(s);
+  if (obj === undefined) {
+    const a = s.indexOf("{");
+    const b = s.lastIndexOf("}");
+    if (a !== -1 && b > a) {
+      const sliced = s.slice(a, b + 1);
+      obj = tryParse(sliced) ?? tryParse(sliced.replace(/,(\s*[}\]])/g, "$1"));
+    }
+  }
+  return obj === undefined ? null : JSON.stringify(obj);
+}
+
 // CORS preflight for all routes
 for (const path of ["/import-pension", "/advisor", "/advisor-chat", "/refresh"]) {
   http.route({
@@ -304,7 +329,20 @@ ${JSON.stringify(dataSummary, null, 2)}`;
       }
 
       const result = (await response.json()) as any;
-      const report = result.content?.find((b: any) => b.type === "text")?.text || "No report generated";
+      const rawReport = result.content?.find((b: any) => b.type === "text")?.text || "";
+      const report = extractReportJson(rawReport);
+      if (!report) {
+        const truncated = result.stop_reason === "max_tokens";
+        return corsResponse(
+          {
+            ok: false,
+            error: truncated
+              ? "The report was too long and got cut off. Please try generating it again."
+              : "Could not parse the AI report. Please try generating it again.",
+          },
+          502
+        );
+      }
 
       return corsResponse({ ok: true, report });
     } catch (err: any) {
